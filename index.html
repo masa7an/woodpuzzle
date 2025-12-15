@@ -169,7 +169,7 @@ async def custom_site():
 
         # now make a prompt
         fnt = pygame.sysfont.SysFont("freesans",  uy(80) )
-        prompt = fnt.render("Ready to start !", True, "blue")
+        prompt = fnt.render("Now Loading...", True, "blue")
         pg_bar(track.len)
         screen.blit(prompt, ( marginx+ ux(80), marginy - uy(10) ) )
         compose()
@@ -342,6 +342,23 @@ config = {
     </style>
 
     <script src="https://pygame-web.github.io/archives/0.9//browserfs.min.js"></script>
+
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-3JQ48J80W0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-3JQ48J80W0');
+</script>
+
+<!-- Font Settings for Web -->
+  :lang(en) {
+    font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+  }
+</style>
 
 </head>
 
