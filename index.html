@@ -169,7 +169,7 @@ async def custom_site():
 
         # now make a prompt
         fnt = pygame.sysfont.SysFont("freesans",  uy(80) )
-        prompt = fnt.render("Now Loading...", True, "blue")
+        prompt = fnt.render("Click to continue", True, "blue")
         pg_bar(track.len)
         screen.blit(prompt, ( marginx+ ux(80), marginy - uy(10) ) )
         compose()
