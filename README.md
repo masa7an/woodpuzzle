@@ -1,0 +1,39 @@
+# Wood Puzzle
+
+シルエットにピースをはめ込むパズルゲーム  
+A puzzle game where you fit pieces into silhouettes
+
+## 🎮 Play
+
+[▶ Play Now](https://your-username.github.io/woodpuzzle/)
+
+## 📖 How to Play
+
+- **ドラッグ**: ピースを枠内に配置
+- **Z**: 元に戻す (Undo)
+- **R**: リセット
+- **T**: タイマー表示切替
+- **H**: ヒント表示
+- **L**: 言語切替 (日本語/English)
+- **P**: プライバシーポリシー
+
+## 🏆 Features
+
+- 20 ステージ
+- RTAタイマー & ランキング
+- 日本語/英語対応
+- ブラウザで動作（PC/スマホ）
+
+## 🛠 Tech Stack
+
+- Python + Pygame
+- Pygbag (WebAssembly)
+- Google Analytics 4
+
+## 📄 License
+
+MIT License
+
+## 🔒 Privacy
+
+[Privacy Policy](./privacy.html)
