@@ -5,7 +5,7 @@ A puzzle game where you fit pieces into silhouettes
 
 ## 🎮 Play
 
-[▶ Play Now](https://your-username.github.io/woodpuzzle/)
+[▶ Play Now](https://masa7an.github.io/woodpuzzle/)
 
 ## 📖 How to Play
 
@@ -37,3 +37,4 @@ MIT License
 ## 🔒 Privacy
 
 [Privacy Policy](./privacy.html)
+
