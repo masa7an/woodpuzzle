@@ -7,6 +7,10 @@ A puzzle game where you fit pieces into silhouettes
 
 [▶ Play Now](https://masa7an.github.io/woodpuzzle/)
 
+## 📷 Screenshot
+
+![Wood Puzzle Screenshot](./screenshot.jpg)
+
 ## 📖 How to Play
 
 - **ドラッグ**: ピースを枠内に配置
@@ -37,4 +41,3 @@ MIT License
 ## 🔒 Privacy
 
 [Privacy Policy](./privacy.html)
-
