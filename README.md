@@ -17,22 +17,22 @@ A puzzle game where you fit pieces into silhouettes
   Drag: Place pieces in the frame
   
 - **Z**: 元に戻す (Undo)  
-  Z: Undo
+   Undo
   
 - **R**: リセット  
-  R: Reset
+   Reset
   
 - **T**: タイマー表示切替  
-  T: Toggle timer display
+   Toggle timer display
   
 - **H**: ヒント表示  
-  H: Show hint
+   Show hint
   
 - **L**: 言語切替 (日本語/English)  
-  L: Switch language (Japanese/English)
+   Switch language (Japanese/English)
   
 - **P**: プライバシーポリシー  
-  P: Privacy policy
+   Privacy policy
 
 ## 🏆 Features
 
@@ -69,3 +69,4 @@ MIT License
 ### 2025-12-19
 
 - FPS improvement. 改善アップデート（パフォーマンス最適化、視覚フィードバック追加）
+
