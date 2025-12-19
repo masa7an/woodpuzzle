@@ -13,20 +13,31 @@ A puzzle game where you fit pieces into silhouettes
 
 ## 📖 How to Play
 
-- **ドラッグ**: ピースを枠内に配置
-- **Z**: 元に戻す (Undo)
-- **R**: リセット
-- **T**: タイマー表示切替
-- **H**: ヒント表示
-- **L**: 言語切替 (日本語/English)
-- **P**: プライバシーポリシー
+- **ドラッグ**: ピースを枠内に配置  
+  Drag: Place pieces in the frame
+- **Z**: 元に戻す (Undo)  
+  Z: Undo
+- **R**: リセット  
+  R: Reset
+- **T**: タイマー表示切替  
+  T: Toggle timer display
+- **H**: ヒント表示  
+  H: Show hint
+- **L**: 言語切替 (日本語/English)  
+  L: Switch language (Japanese/English)
+- **P**: プライバシーポリシー  
+  P: Privacy policy
 
 ## 🏆 Features
 
-- 20 ステージ
-- RTAタイマー & ランキング
-- 日本語/英語対応
-- ブラウザで動作（PC/スマホ）
+- 20 ステージ  
+  20 stages
+- RTAタイマー & ランキング  
+  RTA timer & ranking
+- 日本語/英語対応  
+  Japanese/English support
+- ブラウザで動作（PC/スマホ）  
+  Works in browser (PC/mobile)
 
 ## 🛠 Tech Stack
 
