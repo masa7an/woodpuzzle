@@ -41,3 +41,10 @@ MIT License
 ## 🔒 Privacy
 
 [Privacy Policy](./privacy.html)
+
+---
+
+## 📝 Update History
+
+### 2025-12-19
+- FPS改善アップデート（パフォーマンス最適化、視覚フィードバック追加）
