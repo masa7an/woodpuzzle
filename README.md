@@ -15,16 +15,22 @@ A puzzle game where you fit pieces into silhouettes
 
 - **ドラッグ**: ピースを枠内に配置  
   Drag: Place pieces in the frame
+  
 - **Z**: 元に戻す (Undo)  
   Z: Undo
+  
 - **R**: リセット  
   R: Reset
+  
 - **T**: タイマー表示切替  
   T: Toggle timer display
+  
 - **H**: ヒント表示  
   H: Show hint
+  
 - **L**: 言語切替 (日本語/English)  
   L: Switch language (Japanese/English)
+  
 - **P**: プライバシーポリシー  
   P: Privacy policy
 
@@ -32,11 +38,14 @@ A puzzle game where you fit pieces into silhouettes
 
 - 20 ステージ  
   20 stages
+  
 - RTAタイマー & ランキング  
   RTA timer & ranking
+  
 - 日本語/英語対応  
   Japanese/English support
-- ブラウザで動作（PC/スマホ）  
+  
+- ブラウザで動作（PC/スマホでも一応動く）  
   Works in browser (PC/mobile)
 
 ## 🛠 Tech Stack
@@ -58,4 +67,5 @@ MIT License
 ## 📝 Update History
 
 ### 2025-12-19
-- FPS改善アップデート（パフォーマンス最適化、視覚フィードバック追加）
+
+- FPS improvement. 改善アップデート（パフォーマンス最適化、視覚フィードバック追加）
