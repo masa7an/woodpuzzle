@@ -36,7 +36,11 @@ class Piece:
         self.dragging = False
         self.drag_offset_x = 0
         self.drag_offset_y = 0
-        
+
+        # 描画色のキャッシュ（(placed, dragging) が変わった時だけ再計算）
+        self._color_cache = None
+        self._color_cache_key = None
+
         # バウンディングボックス計算
         self._calc_bounds()
     
@@ -158,8 +162,23 @@ class Piece:
             self.placed_row = None
             self.placed_col = None
     
-    def draw(self, screen):
-        """ピースを描画（最適化版）"""
+    def _get_draw_colors(self):
+        """
+        描画に使う色と枠線幅を取得
+
+        配置状態(placed)とドラッグ状態(dragging)でしか変わらないため、
+        毎フレーム計算せずキャッシュする
+        """
+        cache_key = (self.placed, self.dragging)
+        if self._color_cache_key == cache_key:
+            return self._color_cache
+
+        self._color_cache_key = cache_key
+        self._color_cache = self._calc_draw_colors()
+        return self._color_cache
+
+    def _calc_draw_colors(self):
+        """配置・ドラッグ状態から描画色を計算"""
         # 配色は配置状態によって変更（事前計算）
         if self.placed:
             # 配置済みは少し明るく（tuple生成を削減）
@@ -203,7 +222,13 @@ class Piece:
             border_width = 4  # 太い枠線
         else:
             border_width = 3
-        
+
+        return draw_color, border_color, highlight, border_width
+
+    def draw(self, screen):
+        """ピースを描画（最適化版）"""
+        draw_color, border_color, highlight, border_width = self._get_draw_colors()
+
         # 各セルを描画（pygame.Rect の生成を削減）
         for row, col in self.cells:
             x = self.x + col * self.cell_size

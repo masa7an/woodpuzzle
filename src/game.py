@@ -88,8 +88,8 @@ class Game:
         self.font_timer = None
         self._timer_cache_text = None
         self._timer_cache_key = None # (time_str, color)
-        self._timer_last_update = 0.0
-        self._timer_update_interval = 0.01 # 10ms
+        self._ghost_cell_surface = None
+        self._ghost_cell_key = None # (color, cell_size)
         
         # その他キャッシュ
         self._next_stage_exists_cache = None
@@ -213,11 +213,7 @@ class Game:
         self._cached_instructions = None
     
     def _load_stage1(self):
-        """Stage 1（赤十字型）を読み込み"""
-        # ステージ番号を持たないと次ステージ判定が働かないため必ず設定する
-        self.current_stage_id = 'STAGE_001'
-        self._next_stage_exists_cache = None
-
+        """Stage 1（赤十字型）を読み込み（.stageファイルが無い場合のフォールバック）"""
         # 赤十字型の枠（11x11グリッド）
         # 中央が太い十字
         shape = [
@@ -233,127 +229,79 @@ class Game:
             [0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
             [0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
         ]
-        
-        # グリッド作成（画面中央に配置）
-        cell_size = 40
-        grid_width = len(shape[0]) * cell_size
-        grid_height = len(shape) * cell_size
-        offset_x = (self.screen_width - grid_width) // 2
-        offset_y = (self.screen_height - grid_height) // 2
-        
-        self.grid = Grid(shape, cell_size, offset_x, offset_y)
-        
-        # ピースを作成
-        self._create_stage1_pieces(cell_size)
-    
-    def _create_stage1_pieces(self, cell_size):
-        """Stage 1のピースを作成（ユーザーデザイン）"""
+
         # 赤十字の有効セル数: 57セル
         # 8ピース構成: A(4) + B(5) + C(12) + D(6) + E(6) + F(7) + G(13) + H(4) = 57セル
-        
-        # 正解位置情報
-        self.solution = {
-            'A': {'row': 2, 'col': 5},
-            'B': {'row': 3, 'col': 6},
-            'C': {'row': 7, 'col': 4},
-            'D': {'row': 6, 'col': 5},
-            'E': {'row': 4, 'col': 8},
-            'F': {'row': 0, 'col': 4},
-            'G': {'row': 4, 'col': 0},
-            'H': {'row': 2, 'col': 3},
-        }
-        
-        pieces_data = [
+        # position は正解位置（.stageファイルと同じ形式）
+        pieces = [
             # A: 4セル - 縦棒
-            {
-                'id': 'A',
-                'cells': [(0, 0), (1, 0), (2, 0), (3, 0)],
-            },
+            {'id': 'A', 'position': (2, 5),
+             'cells': [(0, 0), (1, 0), (2, 0), (3, 0)]},
             # B: 5セル
-            {
-                'id': 'B',
-                'cells': [(0, 0), (1, 0), (1, 1), (2, 0), (2, 1)],
-            },
+            {'id': 'B', 'position': (3, 6),
+             'cells': [(0, 0), (1, 0), (1, 1), (2, 0), (2, 1)]},
             # C: 12セル - 3x4ブロック
-            {
-                'id': 'C',
-                'cells': [
-                    (0, 0), (0, 1), (0, 2),
-                    (1, 0), (1, 1), (1, 2),
-                    (2, 0), (2, 1), (2, 2),
-                    (3, 0), (3, 1), (3, 2),
-                ],
-            },
+            {'id': 'C', 'position': (7, 4),
+             'cells': [
+                 (0, 0), (0, 1), (0, 2),
+                 (1, 0), (1, 1), (1, 2),
+                 (2, 0), (2, 1), (2, 2),
+                 (3, 0), (3, 1), (3, 2),
+             ]},
             # D: 6セル - 横棒
-            {
-                'id': 'D',
-                'cells': [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5)],
-            },
+            {'id': 'D', 'position': (6, 5),
+             'cells': [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5)]},
             # E: 6セル - 2x3ブロック
-            {
-                'id': 'E',
-                'cells': [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)],
-            },
+            {'id': 'E', 'position': (4, 8),
+             'cells': [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]},
             # F: 7セル - L字型
-            {
-                'id': 'F',
-                'cells': [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 2)],
-            },
+            {'id': 'F', 'position': (0, 4),
+             'cells': [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 2)]},
             # G: 13セル - 大きなL字型
-            {
-                'id': 'G',
-                'cells': [
-                    (0, 0), (0, 1), (0, 2),
-                    (1, 0), (1, 1), (1, 2), (1, 3), (1, 4),
-                    (2, 0), (2, 1), (2, 2), (2, 3), (2, 4),
-                ],
-            },
+            {'id': 'G', 'position': (4, 0),
+             'cells': [
+                 (0, 0), (0, 1), (0, 2),
+                 (1, 0), (1, 1), (1, 2), (1, 3), (1, 4),
+                 (2, 0), (2, 1), (2, 2), (2, 3), (2, 4),
+             ]},
             # H: 4セル
-            {
-                'id': 'H',
-                'cells': [(0, 1), (1, 1), (2, 0), (2, 1)],
-            },
+            {'id': 'H', 'position': (2, 3),
+             'cells': [(0, 1), (1, 1), (2, 0), (2, 1)]},
         ]
-        
-        # ピースを作成して初期位置に配置
-        self.pieces = []
-        start_x = 20
-        start_y = 50
-        
-        for i, data in enumerate(pieces_data):
-            color = PIECE_COLORS[i % len(PIECE_COLORS)]
-            piece = Piece(data['id'], data['cells'], color, cell_size)
-            
-            # 初期位置（画面左側に縦に並べる）
-            piece.set_position(start_x, start_y)
-            start_y += piece.height + 20
-            
-            # 画面下に行きすぎたら次の列へ
-            if start_y > self.screen_height - 100:
-                start_y = 50
-                start_x += 180
-            
-            self.pieces.append(piece)
-    
+
+        self._setup_stage({
+            'stage_id': 'STAGE_001',
+            'name': 'Stage 1',
+            'difficulty': 1,
+            'grid_shape': shape,
+            'pieces': pieces,
+        })
+        # ステージが切り替わったので次ステージ判定をやり直させる
+        self._next_stage_exists_cache = None
+
     def _load_stage_from_file(self, filepath):
         """ファイルからステージを読み込み"""
         stage_data = StageLoader.load_stage(filepath)
         self._setup_stage(stage_data)
 
-    def _setup_stage(self, stage_data):
-        """ステージデータ（辞書）からゲームを初期化"""
-        self.current_stage_id = stage_data['stage_id']
-        
-        # グリッド作成
-        shape = stage_data['grid_shape']
-        cell_size = 40
+    def _build_grid(self, shape, cell_size=40):
+        """グリッドを生成して画面中央に配置"""
+        if not shape or not shape[0]:
+            raise ValueError("grid shape is empty")
+
         grid_width = len(shape[0]) * cell_size
         grid_height = len(shape) * cell_size
         offset_x = (self.screen_width - grid_width) // 2
         offset_y = (self.screen_height - grid_height) // 2
-        
-        self.grid = Grid(shape, cell_size, offset_x, offset_y)
-        
+        return Grid(shape, cell_size, offset_x, offset_y)
+
+    def _setup_stage(self, stage_data):
+        """ステージデータ（辞書）からゲームを初期化"""
+        self.current_stage_id = stage_data['stage_id']
+
+        # グリッド作成
+        self.grid = self._build_grid(stage_data['grid_shape'])
+
         # 正解位置情報を作成
         self.solution = {}
         for piece_data in stage_data['pieces']:
@@ -361,23 +309,24 @@ class Game:
                 'row': piece_data['position'][0],
                 'col': piece_data['position'][1]
             }
-        
-        # ピースを作成
+
+        # ピースを作成して初期位置に配置（画面左側に縦に並べる）
         self.pieces = []
         start_x = 20
         start_y = 50
-        
+
         for i, piece_data in enumerate(stage_data['pieces']):
             color = PIECE_COLORS[i % len(PIECE_COLORS)]
-            piece = Piece(piece_data['id'], piece_data['cells'], color, cell_size)
-            
+            piece = Piece(piece_data['id'], piece_data['cells'], color, self.grid.cell_size)
+
             piece.set_position(start_x, start_y)
             start_y += piece.height + 20
-            
+
+            # 画面下に行きすぎたら次の列へ
             if start_y > self.screen_height - 100:
                 start_y = 50
                 start_x += 180
-            
+
             self.pieces.append(piece)
 
     def _current_stage_num(self):
@@ -598,40 +547,19 @@ class Game:
             
                 # グリッドが完成しているかチェック
                 if self.grid.is_complete():
-                    # オールクリア判定
-                    if not self._check_next_stage_exists():
-                        self.game_clear = True
-                        self.clear_time = self.elapsed_time
-                        sound_manager.play("clear")
-                        
-                        # Analytics: Stage Clear (non-blocking)
-                        try:
-                            analytics.send_event("stage_clear", {
-                                "stage_id": self.current_stage_id,
-                                "time_ms": self.elapsed_time,
-                                "rta_valid": not self.rta_invalid
-                            })
-                        except Exception as e:
-                            print(f"[Game] Analytics error (non-blocking): {e}")
-                        
-                        # 総合タイム計算とランキング更新（RTA有効時のみ）
-                        if not self.rta_invalid:
-                            total_time = self.accumulated_time + self.elapsed_time
-                            self._update_ranking(total_time)
-                    else:
-                        self.game_clear = True
-                        self.clear_time = self.elapsed_time
-                        sound_manager.play("clear")
-                        
-                        # Analytics: Stage Clear (non-blocking)
-                        try:
-                            analytics.send_event("stage_clear", {
-                                "stage_id": self.current_stage_id,
-                                "time_ms": self.elapsed_time,
-                                "rta_valid": not self.rta_invalid
-                            })
-                        except Exception as e:
-                            print(f"[Game] Analytics error (non-blocking): {e}")
+                    self.game_clear = True
+                    self.clear_time = self.elapsed_time
+                    sound_manager.play("clear")
+
+                    analytics.send_event("stage_clear", {
+                        "stage_id": self.current_stage_id,
+                        "time_ms": self.elapsed_time,
+                        "rta_valid": not self.rta_invalid
+                    })
+
+                    # オールクリアなら総合タイムをランキングへ（RTA有効時のみ）
+                    if not self._check_next_stage_exists() and not self.rta_invalid:
+                        self._update_ranking(self.accumulated_time + self.elapsed_time)
             
             # 状態が変化していれば履歴に追加
             current_state = self._capture_piece_state(self.dragging_piece)
@@ -813,22 +741,11 @@ class Game:
                 if (row, col) in self.editor_cell_map:
                     # 有効→無効
                     del self.editor_cell_map[(row, col)]
-                    # グリッドからも削除
-                    if (row, col) in self.grid.valid_cells:
-                        self.grid.valid_cells.remove((row, col))
-                        self.grid.shape[row][col] = 0
+                    self.grid.set_cell(row, col, False)
                 else:
                     # 無効→有効
                     self.editor_cell_map[(row, col)] = 'A'
-                    # グリッドにも追加
-                    if (row, col) not in self.grid.valid_cells:
-                        self.grid.valid_cells.append((row, col))
-                        # shapeを拡張する必要があれば拡張
-                        while len(self.grid.shape) <= row:
-                            self.grid.shape.append([0] * self.editor_max_cols)
-                        while len(self.grid.shape[row]) <= col:
-                            self.grid.shape[row].append(0)
-                        self.grid.shape[row][col] = 1
+                    self.grid.set_cell(row, col, True)
             return
         
         if (row, col) in self.editor_cell_map:
@@ -969,16 +886,12 @@ class Game:
     def _reset_game(self):
         """ゲームをリセット"""
         self.game_clear = False
-        
-        # Analytics: Retry
-        try:
-            analytics.send_event("retry", {
-                "stage_id": self.current_stage_id,
-                "cause": "user_reset"
-            })
-        except Exception as e:
-            print(f"[Game] Analytics error (non-blocking): {e}")
-        
+
+        analytics.send_event("retry", {
+            "stage_id": self.current_stage_id,
+            "cause": "user_reset"
+        })
+
         self.action_history = []  # 履歴クリア
         self.start_time = pygame.time.get_ticks()  # タイマーリセット
         self.elapsed_time = 0
@@ -1038,14 +951,10 @@ class Game:
                 self._timer_cache_text = None
                 self._timer_cache_key = None
                 
-                # Analytics: Level Start
-                try:
-                    analytics.send_event("level_start", {
-                        "stage_id": self.current_stage_id,
-                        "difficulty": stage_data.get('difficulty', 1)
-                    })
-                except Exception as e:
-                    print(f"[Game] Analytics error (non-blocking): {e}")
+                analytics.send_event("level_start", {
+                    "stage_id": self.current_stage_id,
+                    "difficulty": stage_data.get('difficulty', 1)
+                })
             except Exception as e:
                 print(text_manager.get("logs.load_fail", e))
                 # 失敗したらhardcodedステージ1へ
@@ -1197,7 +1106,6 @@ class Game:
     def _draw_clear_message(self):
         """クリアメッセージを描画"""
         # ステージ番号
-        # ステージ番号
         if self._cached_stage_label_text is None:
              stage_num = self._current_stage_num() or 1
              self._cached_stage_label_text = self.font_large.render(text_manager.get("ui.stage_label", stage_num), True, (200, 200, 200))
@@ -1230,71 +1138,29 @@ class Game:
         else:
             # オールクリアの場合
             # "ALL CLEAR!" を少し右へ戻す（センタリング調整）
-            # ランキング表示に合わせて全体を上にずらす（さらに上へ：重なり回避）
+            # ランキング表示に合わせて全体を上にずらす（重なり回避）
             text_rect = self.text_all_clear.get_rect(center=(self.screen_width // 2 - 20, self.screen_height // 2 - 140))
-            
 
-            
-            # 描画
-            self.screen.blit(stage_text, stage_rect)
-            self.screen.blit(self.text_all_clear, text_rect)
-            
-            # ランキングキャッシュ生成・描画
+            # ランキングはSurfaceをキャッシュ（毎フレームrenderするとWeb版が重い）
             if self._cached_ranking_surfaces is None:
-                 # 開始位置Yの計算が必要
-                 start_y = self.screen_height // 2 + 50 - 80 + 30
-                 self._generate_ranking_cache(start_y)
-                 
-                 # 背景描画のために矩形計算も必要だが、簡略化のため
-                 # 以前の矩形描画ロジックは「文字が見やすくなる背景」用だったので、
-                 # キャッシュ生成時に矩形も計算するか、あるいは固定サイズで描画するか。
-                 # ここでは「レンダリング負荷」が主原因なので、背景矩形計算（Union）は残してもよいが、
-                 # Renderそのものをループ内でやらないことが重要。
-            
-            # 矩形計算（軽量なので残す、ただしRender済みのSurfaceサイズを使う）
-            # ...元のロジックが複雑な依存関係にあるので、
-            # 思い切って「背景描画」もキャッシュに含めるか、背景描画を固定サイズにするのが良い。
-            # ここでは「キャッシュがあればそれを使う」単純なアプローチにする。
-            
-            # 背景の再計算は面倒なので、キャッシュ生成時に背景Rectも計算して保存しておくアプローチに変更すべきだが
-            # 今はフリーズ回避優先。背景は「前回と同じ」でよければ...
-            
-            # 簡易対応：背景の矩形計算を省略し、固定サイズまたは全画面暗転にする手もあるが、
-            # 元の見た目を維持したい。
-            
-            # よって、_generate_ranking_cache で Rectリストも作る。
-            
-            option_rects = [] # 使わないが変数エラー回避
-            rank_surfaces = [] # 使わない
-            
-            # ----------------------------------------------------------------
-            # リファクタリング: オールクリア画面の描画は重いため、
-            # 全体を1つのSurfaceに描画するか、キャッシュ済みリストを描画する。
-            # 背景枠の計算のためにはRectが必要。
-            # ----------------------------------------------------------------
-            
-            if self._cached_ranking_surfaces is None:
-                start_y = self.screen_height // 2 + 50 - 80 + 30
-                self._generate_ranking_cache(start_y)
+                self._generate_ranking_cache(self.screen_height // 2 + 50 - 80 + 30)
 
-            # 背景描画のためにRectを結合
+            # 背景（全テキストを含む）
             total_rect = stage_rect.union(text_rect)
-            for s, r in self._cached_ranking_surfaces:
+            for _, r in self._cached_ranking_surfaces:
                 total_rect = total_rect.union(r)
-            
+
             bg_rect = total_rect.inflate(60, 120)
             pygame.draw.rect(self.screen, (0, 0, 0), bg_rect)
             pygame.draw.rect(self.screen, (255, 215, 0), bg_rect, 3)
-            
+
             # 描画
             self.screen.blit(stage_text, stage_rect)
             self.screen.blit(self.text_all_clear, text_rect)
-            
-            # キャッシュされたランキング描画
-            if self._cached_ranking_surfaces:
-                for s, r in self._cached_ranking_surfaces:
-                    self.screen.blit(s, r)
-            
+            for s, r in self._cached_ranking_surfaces:
+                self.screen.blit(s, r)
+
+
     def _generate_ranking_cache(self, start_y):
         """ランキング表示をキャッシュ生成"""
         if self._cached_ranking_surfaces is not None:
@@ -1327,14 +1193,8 @@ class Game:
 
         for i, entry in enumerate(self.ranking):
             time_ms = entry['time']
-            seconds = time_ms // 1000
-            ms = (time_ms % 1000) // 100
-            minutes = seconds // 60
-            seconds = seconds % 60
-            hours = minutes // 60
-            minutes = minutes % 60
-            
-            time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}.{ms}"
+            time_str = self._format_rta_time(time_ms)
+
             if i == 0:
                 rank_str = text_manager.get("ranking.1st", time_str)
             elif i == 1:
@@ -1452,17 +1312,18 @@ class Game:
         base_row = sol['row']
         base_col = sol['col']
         
-        # 半透明で描画（Surfaceを使用）
+        # 半透明セルのSurfaceはピース色ごとにキャッシュ（毎フレーム生成しない）
         ghost_alpha = 80  # 透明度（0-255）
-        ghost_color = piece.color
-        
+        ghost_key = (piece.color, cell_size)
+        if self._ghost_cell_key != ghost_key:
+            surface = pygame.Surface((cell_size, cell_size), pygame.SRCALPHA)
+            surface.fill((piece.color[0], piece.color[1], piece.color[2], ghost_alpha))
+            self._ghost_cell_surface = surface
+            self._ghost_cell_key = ghost_key
+
         for dr, dc in piece.cells:
             x, y = self.grid.cell_to_pixel(base_row + dr, base_col + dc)
-            # 半透明Surfaceを作成して描画
-            ghost_surface = pygame.Surface((cell_size, cell_size), pygame.SRCALPHA)
-            ghost_surface.set_alpha(ghost_alpha)
-            pygame.draw.rect(ghost_surface, ghost_color, (0, 0, cell_size, cell_size))
-            self.screen.blit(ghost_surface, (x, y))
+            self.screen.blit(self._ghost_cell_surface, (x, y))
             # 枠線
             pygame.draw.rect(self.screen, (255, 255, 255), (x, y, cell_size, cell_size), 1)
     
@@ -1479,23 +1340,10 @@ class Game:
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}.{ms}"
 
     def _draw_timer(self):
-        """経過時間を描画（最適化版）"""
+        """経過時間を描画（表示文字列が変わった時だけrenderする）"""
         if not self.show_timer:
             return
-            
-        now = pygame.time.get_ticks() / 1000.0
-        
-        # 更新頻度制御（10ms）
-        if now - self._timer_last_update < self._timer_update_interval:
-            # 表示内容は変わらない（または頻度制限内）→ キャッシュがあれば表示
-            if self._timer_cache_text:
-                text = self._timer_cache_text
-                rect = text.get_rect(bottomright=(self.screen_width - 10, self.screen_height - 10))
-                self.screen.blit(text, rect)
-            return
 
-        self._timer_last_update = now
-            
         # 時間計算（クリア済みなら固定）
         total_ms = self.clear_time if self.game_clear else self.elapsed_time
         

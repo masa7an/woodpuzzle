@@ -57,27 +57,27 @@ class AnalyticsManager:
         Send an event to GA4.
         Web: Uses platform.window.gtag directly (non-blocking)
         Desktop: Logs to console
+
+        Never raises: callers can invoke this bare, without their own try/except.
         """
         if params is None:
             params = {}
-        
-        if self.is_web:
-            # Web: Send event via gtag (non-blocking, lazy initialization)
-            if self._ensure_gtag() and self.gtag:
-                try:
+
+        try:
+            if self.is_web:
+                # Web: Send event via gtag (non-blocking, lazy initialization)
+                # gtag not available -> skip silently to prevent freeze
+                if self._ensure_gtag() and self.gtag:
                     # Call gtag('event', event_name, params)
                     # This should be non-blocking as gtag uses dataLayer.push internally
                     self.gtag('event', event_name, params)
                     print(f"[Analytics] Event sent: {event_name}, Params: {json.dumps(params)}")
-                except Exception as e:
-                    # Silently fail to prevent freeze - just log the error
-                    print(f"[Analytics] Failed to send event (non-blocking): {e}")
             else:
-                # gtag not available - skip silently to prevent freeze
-                pass
-        else:
-            # Desktop Mode: Log to console
-            print(f"[Analytics] Event: {event_name}, Params: {json.dumps(params)}")
+                # Desktop Mode: Log to console
+                print(f"[Analytics] Event: {event_name}, Params: {json.dumps(params)}")
+        except Exception as e:
+            # Never let analytics break the game loop
+            print(f"[Analytics] Failed to send event (non-blocking): {e}")
 
 # Global instance
 analytics = AnalyticsManager()

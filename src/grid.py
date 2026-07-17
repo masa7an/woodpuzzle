@@ -24,33 +24,67 @@ class Grid:
         self.offset_x = offset_x
         self.offset_y = offset_y
         
-        # 有効セルの座標リスト
+        # 有効セルの集合（shapeから導出。毎フレームの所属判定に使うためset）
         self.valid_cells = self._extract_valid_cells()
-        
+
         # 配置済みセル（ピースIDでマーク）
         self.occupied = {}  # {(row, col): piece_id}
-    
+
     def _extract_valid_cells(self):
-        """有効セルの座標リストを抽出"""
-        cells = []
+        """有効セルの座標集合を抽出"""
+        cells = set()
         for row in range(self.rows):
             for col in range(self.cols):
                 if self.shape[row][col] == 1:
-                    cells.append((row, col))
+                    cells.add((row, col))
         return cells
-    
+
     def cell_to_pixel(self, row, col):
         """セル座標をピクセル座標に変換"""
         x = self.offset_x + col * self.cell_size
         y = self.offset_y + row * self.cell_size
         return x, y
-    
+
     def pixel_to_cell(self, x, y):
-        """ピクセル座標をセル座標に変換（切り捨て）"""
-        col = int((x - self.offset_x) / self.cell_size)
-        row = int((y - self.offset_y) / self.cell_size)
+        """
+        ピクセル座標をセル座標に変換（切り下げ）
+
+        グリッドの左/上にはみ出した座標は負のセルを返す。
+        int()だと0方向に切り捨てられ、枠外のクリックが端のセル(0)に
+        吸い込まれてしまうため、整数除算（切り下げ）を使う。
+        """
+        col = (x - self.offset_x) // self.cell_size
+        row = (y - self.offset_y) // self.cell_size
         return row, col
-    
+
+    def set_cell(self, row, col, active):
+        """
+        セルの有効/無効を切り替える（エディタ用）
+
+        shape（正）と valid_cells（導出）を一貫して更新し、
+        必要に応じてshapeを拡張する
+        """
+        if row < 0 or col < 0:
+            return
+
+        if active:
+            # shapeを必要な大きさまで拡張
+            while len(self.shape) <= row:
+                self.shape.append([0] * self.cols)
+            for shape_row in self.shape:
+                while len(shape_row) <= col:
+                    shape_row.append(0)
+
+            self.rows = len(self.shape)
+            self.cols = max(len(r) for r in self.shape)
+
+            self.shape[row][col] = 1
+            self.valid_cells.add((row, col))
+        else:
+            if row < self.rows and col < len(self.shape[row]):
+                self.shape[row][col] = 0
+            self.valid_cells.discard((row, col))
+
     def is_valid_cell(self, row, col):
         """セルが枠内かどうか判定"""
         if 0 <= row < self.rows and 0 <= col < self.cols:
