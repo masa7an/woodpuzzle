@@ -62,6 +62,46 @@ python assets/scripts/inject_ga4.py
 
 **ビルド後は必ずapkのサイズと中身を確認すること**（公開中の3.5MBから大きく増えていたら疑う）。
 
+### ⚠️ push してもGitHub Pagesのデプロイが走らないことがある
+
+**症状**: `git push` は成功し、GitHub側にもコミットが届いている（リモートの `main` が新しいsha、
+`pushed_at` も更新済み）のに、`pages build and deployment` の実行が**1件も作られない**。
+ビルド失敗ではなく**未起動**なので、失敗通知メールも来ない。公開サイトは旧版のまま。
+
+**対処**: **もう一度 push すれば起動する。** 2026-07-17の実例:
+
+| | 1回目 push | 2回目 push |
+|---|---|---|
+| ワークフロー起動 | **0件**（20分待っても） | **30秒以内に起動** → success → 公開反映 |
+
+この間、設定は一切変えていない。
+
+**原因は未確定。** ユーザーの仮説は「**公開デプロイはサインイン済みでないと動かない可能性**」。
+実際、1回目と2回目の間にユーザーがGitHubへサインインし Settings→Pages / Settings→Actions を開いている。
+設定画面を開いたことでPagesが再登録された可能性もあり、サインイン自体が要因かは切り分けできていない。
+Dec 2025から約7ヶ月の休眠明けだったことも関係するかもしれない（いずれも推測）。
+
+**確認方法**（publicリポジトリなので未認証のAPIで見える。`gh` CLIは未インストール）:
+
+```bash
+# ワークフロー実行履歴（今日のpushで新しい実行が増えているか）
+curl -s "https://api.github.com/repos/masa7an/woodpuzzle/actions/runs?per_page=3"
+# 公開中のapkが手元と同じサイズか
+curl -sI "https://masa7an.github.io/woodpuzzle/woodpazzule.apk" | grep -i content-length
+```
+
+**切り分け済みで原因ではないもの**（同じ道を辿らないこと）:
+
+- `.github/workflows/` が無いこと → **正常**。Pages Sourceが `Deploy from a branch` の場合、
+  GitHubが組み込みの `pages-build-deployment` を自動実行する。ワークフローファイルは不要。
+  （`GitHub Actions` を選んでいる場合のみ必要）
+- Actions permissions → `Allow all actions and reusable workflows` で有効だった
+- ワークフローの state → `active`（休眠による自動無効化ではなかった）
+- Pages Source → `main` / `(root)` で正しかった
+- リポジトリ → public / アーカイブなし / 無効化なし
+
+---
+
 - デプロイは `build/web/*`（`index.html`, `woodpazzule.apk`, `favicon.png`, `privacy.html`）を
   **リポジトリ直下へコピー**して push する。GitHub Pages が配信しているのは直下のファイル。
   `build/` 自体は `.gitignore` 済み。
@@ -129,9 +169,25 @@ z.namelist()          # stages/ や assets/data/ が入っているか
 
 - [ ] apkに `stages/STAGE_001〜020.stage` が入っているか
 - [ ] apkに `assets/data/text_*.json`, `assets/fonts/*.ttf`, `assets/SE/*.wav` が入っているか
+- [ ] apkが自分自身（`assets/woodpazzule.apk`）を同梱していないか
 - [ ] `analytics.py` がWeb版で `gtag` を呼んでいないか
-- [ ] `inject_ga4.py` を実行済みか（GA4タグ・タイトル・ローディング文言）
+- [ ] `inject_ga4.py` を実行済みか（GA4タグ・**タイトルのバージョン**・ローディング文言）
 - [ ] 実ブラウザで起動・プレイできるか（ヘッドレステストではWeb版の描画は検証できない）
+
+## デプロイ後チェック
+
+push しただけで「公開した」と言わないこと。**必ず公開サイト側を確認する**
+（上記のとおりPagesが起動しないことがある）:
+
+- [ ] ワークフローが起動し success したか（未起動ならもう一度 push）
+- [ ] 公開中のapkが手元と同じか（サイズ or SHA256の一致）
+- [ ] タブのタイトルに新しいバージョンが出るか（人が新旧を見分ける唯一の手段）
+
+バージョンはタイトルの2箇所に入る。**片方だけに頼らない**:
+
+- `index.html` の `<title>` — `inject_ga4.py` がビルド時に注入。Pythonが動く前から見える（確実）
+- `pygame.display.set_caption()` — `Game._window_caption()`。デスクトップでは確認済みだが、
+  **Web版でタブへ反映されるかは未検証**
 
 ---
 
