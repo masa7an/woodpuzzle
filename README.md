@@ -1,5 +1,7 @@
 # Wood Puzzle
 
+**ver 1.1**
+
 シルエットにピースをはめ込むパズルゲーム  
 A puzzle game where you fit pieces into silhouettes
 
@@ -65,6 +67,13 @@ MIT License
 ---
 
 ## 📝 Update History
+
+### ver 1.1 (2026-07-17)
+
+- バグ修正（Web版のUndoタップのクラッシュ、ヒント表示、Undo時の盤面破壊など）
+  Bug fixes (web Undo tap crash, hint display, board corruption on Undo)
+- リファクタリング（重複削除、描画の軽量化、ステージエディタを分離）
+  Refactoring (deduplication, lighter drawing, stage editor split out)
 
 ### 2025-12-19
 
