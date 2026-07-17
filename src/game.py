@@ -9,6 +9,7 @@ import sys
 import json
 import datetime
 import asyncio
+from src import __version__
 from src.grid import Grid
 from src.piece import Piece, PIECE_COLORS
 from src.editor import StageEditor
@@ -109,11 +110,19 @@ class Game:
         self._ghost_cell_surface = None
         self._ghost_cell_key = None    # (color, cell_size)
 
+    def _window_caption(self):
+        """
+        ウィンドウ（Web版はブラウザのタブ）のタイトル
+
+        公開されている版が新しいか古いかを人が見分けられるよう、必ずバージョンを入れる
+        """
+        return f"{text_manager.get('window_title')} ver {__version__}"
+
     def init(self):
         """Pygame初期化"""
         pygame.init()
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
-        pygame.display.set_caption(text_manager.get("window_title"))
+        pygame.display.set_caption(self._window_caption())
         self.clock = pygame.time.Clock()
         self.running = True
 
@@ -193,7 +202,7 @@ class Game:
 
     def _refresh_text_surfaces(self):
         """静的テキストを再レンダリング"""
-        pygame.display.set_caption(text_manager.get("window_title"))
+        pygame.display.set_caption(self._window_caption())
         self.text_clear = self.font_large.render(text_manager.get("ui.clear"), True, (255, 215, 0))
         self.text_all_clear = self.font_large.render(text_manager.get("ui.all_clear"), True, (255, 215, 0))
         self.text_press_space = self.font_small.render(text_manager.get("ui.press_space"), True, (200, 200, 200))

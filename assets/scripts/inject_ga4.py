@@ -1,4 +1,5 @@
 import os
+import re
 
 # GA4 tag and CSS overrides to inject
 INJECT_CONTENT = """
@@ -22,6 +23,29 @@ INJECT_CONTENT = """
 
 # Path to the Pygbag output file
 INDEX_PATH = os.path.join("build", "web", "index.html")
+
+# Source of truth for the app version
+VERSION_PATH = os.path.join("src", "__init__.py")
+
+
+def read_version():
+    """
+    src/__init__.py の __version__ を読む
+
+    公開されている版が新しいか古いかをタブのタイトルで見分けられるようにするため、
+    タイトルへ差し込む。import せず正規表現で読むのは、このスクリプトが
+    pygame等に依存せず単体で動くようにするため。
+    """
+    try:
+        with open(VERSION_PATH, 'r', encoding='utf-8') as f:
+            m = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']', f.read(), re.M)
+        if m:
+            return m.group(1)
+        print(f"Warning: __version__ not found in {VERSION_PATH}")
+    except OSError as e:
+        print(f"Warning: could not read {VERSION_PATH}: {e}")
+    return None
+
 
 def inject_ga4():
     if not os.path.exists(INDEX_PATH):
@@ -47,14 +71,19 @@ def inject_ga4():
             timeout -= 1'''
         new_content = new_content.replace(old_loop, new_loop)
         
-        # Update page title
-        new_content = new_content.replace('<title>woodpazzule</title>', '<title>ウッドパズル ― 無料ゲーム | Wood Puzzle - Free Game</title>')
-        
+        # Update page title (バージョン付き: 公開版の新旧を人が見分けられるように)
+        version = read_version()
+        title = 'ウッドパズル ― 無料ゲーム | Wood Puzzle - Free Game'
+        if version:
+            title += f' (ver {version})'
+        new_content = new_content.replace('<title>woodpazzule</title>', f'<title>{title}</title>')
+
         with open(INDEX_PATH, 'w', encoding='utf-8') as f:
             f.write(new_content)
-        
+
         print(f"Successfully injected GA4 tag into {INDEX_PATH}")
         print(f"Updated loading text to 'Now Loading...'")
+        print(f"Page title: {title}")
     else:
         print("Error: Could not find </head> tag in index.html")
 
