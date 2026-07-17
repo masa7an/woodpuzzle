@@ -21,34 +21,31 @@ woodpazzule/
 └── debug.log             # 実行時ログ（生成物）
 ```
 
-## Git管理状況（注意）
-
-`git status` 時点で `src/`, `assets/`, `build/`, `main.py`, `run.bat`, `ranking.json`, `debug.log` はすべて **未追跡（`??`）**。
-リポジトリに `git ls-files` で登録されているのは `README.md`, `ROADMAP.md`, `favicon.png`, `index.html`, `privacy.html`, `screenshot.jpg`, `woodpazzule.apk` のみで、**ゲーム本体のソースコードがまだコミットされていない**状態。
-
----
-
-## `src/` — ゲーム本体（合計 約2,450行）
+## `src/` — ゲーム本体（合計 約2,440行）
 
 | ファイル | 行数 | 役割 |
 |---|---|---|
-| [game.py](src/game.py) | 1788 | `Game`クラス。メインループ・入力処理・描画・ステージ管理・エディタモード・ランキング・タイマーなど、大半のロジックが集約された中核ファイル |
-| [piece.py](src/piece.py) | 219 | `Piece`クラス。ピースのドラッグ操作、グリッドへの配置判定・着脱 |
+| [game.py](src/game.py) | 1434 | `Game`クラス。メインループ・入力処理・描画・ステージ管理・ランキング・タイマー。依然として最大のファイルで、内訳の大半は描画とSurfaceキャッシュ |
+| [editor.py](src/editor.py) | 267 | `StageEditor`クラス。ステージの編集・保存（Eキー、デスクトップ版のみ）。Gameへの参照を持ち、グリッド/フォント/ステージ読み込みを借りる |
+| [piece.py](src/piece.py) | 257 | `Piece`クラスと `PIECE_COLORS` パレット。ドラッグ操作、グリッドへの配置判定・着脱 |
 | [stage_loader.py](src/stage_loader.py) | 134 | `StageLoader`。独自テキスト形式 `.stage` ファイルの読み書き（`stages/`ディレクトリを想定） |
-| [grid.py](src/grid.py) | 93 | `Grid`クラス。2Dグリッド（1=有効セル/0=無効セル）の管理、セル⇔ピクセル変換、完成判定 |
+| [grid.py](src/grid.py) | 127 | `Grid`クラス。2Dグリッド（1=有効セル/0=無効セル）の管理、セル⇔ピクセル変換、完成判定、`set_cell()`（エディタ用の形状編集） |
 | [text_manager.py](src/text_manager.py) | 72 | `TextManager`（シングルトン `text_manager`）。`assets/data/text_{lang}.json` を読み込む多言語対応 |
 | [sound.py](src/sound.py) | 69 | `SoundManager`（シングルトン `sound_manager`）。`assets/SE/snap.wav`, `clear.wav` の再生 |
-| [analytics.py](src/analytics.py) | 83 | `AnalyticsManager`（シングルトン `analytics`）。GA4送信。Web(emscripten)は `platform.window.gtag` 経由、デスクトップはコンソールログのみ |
+| [analytics.py](src/analytics.py) | 83 | `AnalyticsManager`（シングルトン `analytics`）。GA4送信。Web(emscripten)は `platform.window.gtag` 経由、デスクトップはコンソールログのみ。例外を投げないので呼び出し側でtry/exceptは不要 |
 | [__init__.py](src/__init__.py) | 1 | パッケージマーカー |
 
 ### `Game`クラスの主な責務（[game.py](src/game.py)）
-- **初期化/リソース**: `init()`, `_update_fonts()`, `_refresh_text_surfaces()`
-- **ステージ管理**: `_load_stage1()`（内蔵のStage1定義）, `_load_stage_from_file()`, `_setup_stage()`, `_load_stage()`, `_check_next_stage_exists()`, `_load_next_stage()`
+- **初期化/リソース**: `init()`, `_update_fonts()`, `_refresh_text_surfaces()`, `_invalidate_render_cache()`（描画キャッシュの破棄は必ずここ経由）
+- **ステージ管理**: `_load_stage1()`（内蔵のStage1定義、`.stage`が無い時のフォールバック）, `_load_stage_from_file()`, `_build_grid()`, `_setup_stage()`, `_load_stage()`, `_check_next_stage_exists()`, `_load_next_stage()`
+- **ステージ番号**: `_current_stage_num()` / `_stage_id_to_num()`（`STAGE_NNN` 形式でなければ `None`。ID解析はここに集約）
 - **入力処理**: `handle_events()`, `_on_mouse_down/up/move()`, `_handle_instruction_tap()`（スマホタップ対応）
 - **アンドゥ**: `_capture_piece_state()`, `_undo_last_action()`
-- **エディタモード**（Eキー）: `_toggle_editor_mode()`, `_editor_new_stage()`, `_editor_load_stage()`, `_editor_click()`, `_print_design()`
 - **ランキング**: `_load_ranking()`, `_save_ranking()`, `_update_ranking()`（`ranking.json` に保存、Web版は`localStorage`）
-- **描画**: `draw()`, `_draw_editor()`, `_draw_clear_message()`, `_draw_placeable_highlight()`, `_draw_ghost()`, `_draw_timer()`, `_draw_title_screen()`, `_draw_instructions()`, `_draw_privacy_policy()` 等
+- **描画**: `draw()`, `_draw_clear_message()`, `_draw_placeable_highlight()`, `_draw_ghost()`, `_draw_timer()`, `_draw_instructions()`, `_draw_privacy_policy()` 等
+
+### 既知の未完成コード
+[`_draw_title_screen()`](src/game.py) は**到達不能**。`draw()` は `current_stage_id is None` の時にタイトルを描くが、この値は `''` かステージIDにしかならない。単に条件を直しても有効化できない — 「Press Start」を描画しているのに開始入力のハンドラが無く、`draw()` が直後に無条件で `grid.draw()` を呼ぶため、有効化するとタイトルの上に盤面が重なったままソフトロックする。実装するか削除するかは未決。
 
 ---
 
@@ -60,10 +57,11 @@ woodpazzule/
 | [generate_stages_doc.py](assets/generate_stages_doc.py) | ステージ定義からドキュメントを生成するツール（詳細未確認） |
 | [scripts/inject_ga4.py](assets/scripts/inject_ga4.py) | Pygbagビルド後の `build/web/index.html` にGA4タグとローディングUI修正を注入するポストビルドスクリプト |
 
-**注意**: コードが参照している以下のパスは現在リポジトリ上に存在しない（実行時に生成 or 別途配置が必要）:
-- `stages/*.stage`（[stage_loader.py:59](src/stage_loader.py)、`assets/generate_stages.py`の出力先）
-- `assets/data/text_en.json`, `assets/data/text_ja.json`（[text_manager.py:20](src/text_manager.py)）
-- `assets/SE/snap.wav`, `assets/SE/clear.wav`（[sound.py:35](src/sound.py)）
+**重要**: コードが参照している以下のパスはリポジトリ上に存在しない（`.gitignore`ではなく単に未コミット）。このためクローン直後は**内蔵のStage 1しか遊べず、UIテキストは全てキー文字列（`ui.clear` 等）のまま表示される**:
+- `stages/*.stage` — [game.py](src/game.py) が起動時に `STAGE_001.stage` を探し、無ければ内蔵のStage 1にフォールバックする。`assets/generate_stages.py` の出力先
+- `assets/data/text_en.json`, `assets/data/text_ja.json`（[text_manager.py](src/text_manager.py)）— 無い場合 `get()` はキー文字列をそのまま返す
+- `assets/fonts/NotoSansJP-Regular.ttf`（Web版の日本語フォント。無ければ英語にフォールバック）
+- `assets/SE/snap.wav`, `assets/SE/clear.wav`（[sound.py](src/sound.py)）— 無くても無音で動作する
 
 ---
 
