@@ -137,7 +137,12 @@ class Game:
         # Stage 1を読み込み（ファイルから）
         stage_file = os.path.join(self.stages_dir, 'STAGE_001.stage')
         if os.path.exists(stage_file):
-            self._load_stage_from_file(stage_file)
+            try:
+                self._load_stage_from_file(stage_file)
+            except Exception as e:
+                # 破損した.stageファイルで起動できなくなるのを防ぐ
+                print(text_manager.get("logs.load_fail", e))
+                self._load_stage1()  # フォールバック
         else:
             self._load_stage1()  # フォールバック
         
@@ -209,6 +214,10 @@ class Game:
     
     def _load_stage1(self):
         """Stage 1（赤十字型）を読み込み"""
+        # ステージ番号を持たないと次ステージ判定が働かないため必ず設定する
+        self.current_stage_id = 'STAGE_001'
+        self._next_stage_exists_cache = None
+
         # 赤十字型の枠（11x11グリッド）
         # 中央が太い十字
         shape = [
@@ -370,7 +379,27 @@ class Game:
                 start_x += 180
             
             self.pieces.append(piece)
-    
+
+    def _current_stage_num(self):
+        """
+        現在のステージ番号を取得
+
+        Returns:
+            int: STAGE_NNN形式のIDから取り出した番号
+            None: 未設定、または番号を持たないID（.stageファイル由来の任意文字列）
+        """
+        return self._stage_id_to_num(self.current_stage_id)
+
+    @staticmethod
+    def _stage_id_to_num(stage_id):
+        """ステージIDから番号を取り出す（解析できなければNone）"""
+        if not stage_id:
+            return None
+        try:
+            return int(stage_id.split('_')[1])
+        except (IndexError, ValueError):
+            return None
+
     def handle_events(self):
         """イベント処理"""
         for event in pygame.event.get():
@@ -422,7 +451,9 @@ class Game:
                 elif event.key == pygame.K_SPACE:
                     if not self.space_lock: # 連打防止
                         self.space_lock = True
-                        if self.game_clear and not self.editor_mode:
+                        if self.privacy_mode:
+                            self.privacy_mode = False
+                        elif self.game_clear and not self.editor_mode:
                             if self._check_next_stage_exists():
                                 self._load_next_stage()
                 elif event.key == pygame.K_r:
@@ -451,10 +482,6 @@ class Game:
                     # タイトル画面 または ゲーム中（非エディタ）でプライバシーポリシー表示
                     elif not self.editor_mode:
                         self.privacy_mode = not self.privacy_mode
-                elif event.key == pygame.K_SPACE:
-                    if self.privacy_mode:
-                         self.privacy_mode = False
-
                 elif event.key == pygame.K_n:
                     # 新規ステージ（エディタモード時）
                     if self.editor_mode:
@@ -504,7 +531,8 @@ class Game:
     def _handle_instruction_tap(self, action):
         """操作説明のタップを処理（Web版のみ）"""
         if action == 'Z':
-            self._undo()
+            if not self.editor_mode and not self.game_clear:
+                self._undo_last_action()
         elif action == 'T':
             self.show_timer = not self.show_timer
         elif action == 'R':
@@ -548,11 +576,10 @@ class Game:
                 # ドラッグ中のピースを最前面に
                 self.pieces.remove(piece)
                 self.pieces.append(piece)
-                
-                # 操作開始したらヒントOFF
-                if self.show_ghost:
-                    self.show_ghost = False
-                
+
+                # ヒントはドラッグ中に正解位置を示すため、ここでは消さない
+                # （配置に成功した時点で _on_mouse_up がOFFにする）
+
                 break
     
     def _on_mouse_up(self, pos):
@@ -565,7 +592,7 @@ class Game:
                 # 配置成功 - スナップ音を再生
                 sound_manager.play("snap")
                 
-                # 配置成功したらヒントOFF（念のため）
+                # 配置に成功したらヒントを消費してOFF
                 if self.show_ghost:
                     self.show_ghost = False
             
@@ -647,20 +674,26 @@ class Game:
             target_piece.remove_from_grid(self.grid)
         
         # 状態を復元
-        target_piece.placed = prev_state['placed']
-        target_piece.placed_row = prev_state['placed_row']
-        target_piece.placed_col = prev_state['placed_col']
         target_piece.x = prev_state['x']
         target_piece.y = prev_state['y']
-        
+        target_piece.placed = False
+        target_piece.placed_row = None
+        target_piece.placed_col = None
+
         # 復元後の状態が配置済みならグリッドに反映
-        if target_piece.placed:
-            # グリッド占有処理
+        # ただし、その後に別のピースが同じ場所を埋めている場合がある。
+        # 無条件にoccupyすると相手の占有セルを奪って盤面が壊れるため、
+        # 空いている時だけ配置済みとして復元する（埋まっていれば未配置のまま戻す）
+        if prev_state['placed'] and target_piece._can_place_at(
+                self.grid, prev_state['placed_row'], prev_state['placed_col']):
+            target_piece.placed = True
+            target_piece.placed_row = prev_state['placed_row']
+            target_piece.placed_col = prev_state['placed_col']
             for r, c in target_piece.cells:
-                self.grid.occupy(target_piece.placed_row + r, 
-                               target_piece.placed_col + c, 
+                self.grid.occupy(target_piece.placed_row + r,
+                               target_piece.placed_col + c,
                                target_piece.piece_id)
-        
+
         # スナップ音（フィードバックとして）
         sound_manager.play("snap")
     
@@ -715,13 +748,9 @@ class Game:
         else:
             print(text_manager.get("logs.editor_mode_off"))
             # エディタ終了時に現在のステージを再ロードして変更を反映
-            if self.current_stage_id:
-                try:
-                    stage_num = int(self.current_stage_id.split('_')[1])
-                    self._load_stage(stage_num)
-                except Exception as e:
-                    print(f"Reload failed: {e}")
-                    self._load_stage1()
+            stage_num = self._current_stage_num()
+            if stage_num is not None:
+                self._load_stage(stage_num)
             else:
                 self._load_stage1()
     
@@ -837,14 +866,20 @@ class Game:
                 })
         
         # ステージIDを決定（既存の場合は上書き、新規の場合は新しい番号）
-        if self.current_stage_id:
+        stage_num = self._current_stage_num()
+        if stage_num is not None:
             # 既存ステージを上書き
             stage_id = self.current_stage_id
-            stage_num = int(stage_id.split('_')[1])
         else:
-            # 新規ステージ
-            existing = StageLoader.list_stages(self.stages_dir)
-            stage_num = len(existing) + 1
+            # 新規ステージ: 既存の最大番号+1
+            # （ファイル数+1だと欠番がある時に既存ステージを上書きしてしまう）
+            max_num = 0
+            for path in StageLoader.list_stages(self.stages_dir):
+                existing_id = os.path.splitext(os.path.basename(path))[0]
+                existing_num = self._stage_id_to_num(existing_id)
+                if existing_num is not None and existing_num > max_num:
+                    max_num = existing_num
+            stage_num = max_num + 1
             stage_id = f"STAGE_{stage_num:03d}"
         
         # ファイルパス
@@ -915,10 +950,8 @@ class Game:
         now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # 現在のステージ番号を取得（＝総ステージ数）
-        stage_num = 0
-        if self.current_stage_id:
-            stage_num = int(self.current_stage_id.split('_')[1])
-            
+        stage_num = self._current_stage_num() or 0
+
         entry = {
             "time": total_time,
             "date": now_str,
@@ -952,10 +985,10 @@ class Game:
         self.clear_time = 0
         
         # 現在のステージIDからロード、なければステージ1
-        if self.current_stage_id:
-            stage_num = int(self.current_stage_id.split('_')[1])
+        stage_num = self._current_stage_num()
+        if stage_num is not None:
             self._load_stage(stage_num)
-            
+
             # ステージ1以外でのリセットはRTA無効
             if stage_num > 1:
                 self.rta_invalid = True
@@ -1026,30 +1059,25 @@ class Game:
         if self._next_stage_exists_cache is not None:
              return self._next_stage_exists_cache
 
-        if not self.current_stage_id:
-            self._next_stage_exists_cache = False
-            return False
-        
-        try:
-            current_num = int(self.current_stage_id.split('_')[1])
-            next_num = current_num + 1
-            next_id = f"STAGE_{next_num:03d}"
-            next_path = os.path.join(self.stages_dir, f"{next_id}.stage")
-            exists = os.path.exists(next_path)
-            self._next_stage_exists_cache = exists
-            return exists
-        except:
+        current_num = self._current_stage_num()
+        if current_num is None:
             self._next_stage_exists_cache = False
             return False
 
+        next_id = f"STAGE_{current_num + 1:03d}"
+        next_path = os.path.join(self.stages_dir, f"{next_id}.stage")
+        exists = os.path.exists(next_path)
+        self._next_stage_exists_cache = exists
+        return exists
+
     def _load_next_stage(self):
         """次のステージをロード"""
-        if not self.current_stage_id:
+        current_num = self._current_stage_num()
+        if current_num is None:
             return
-            
-        current_num = int(self.current_stage_id.split('_')[1])
+
         next_num = current_num + 1
-        
+
         # 累積タイムに前ステージのクリアタイムを加算
         if hasattr(self, 'clear_time'):
             self.accumulated_time += self.clear_time
@@ -1171,8 +1199,8 @@ class Game:
         # ステージ番号
         # ステージ番号
         if self._cached_stage_label_text is None:
-             stage_num = self.current_stage_id.split('_')[1] if self.current_stage_id else "1"
-             self._cached_stage_label_text = self.font_large.render(text_manager.get("ui.stage_label", int(stage_num)), True, (200, 200, 200))
+             stage_num = self._current_stage_num() or 1
+             self._cached_stage_label_text = self.font_large.render(text_manager.get("ui.stage_label", stage_num), True, (200, 200, 200))
         
         stage_text = self._cached_stage_label_text
         stage_rect = stage_text.get_rect(center=(self.screen_width // 2, self.screen_height // 2 - 60))
@@ -1331,8 +1359,8 @@ class Game:
     def _draw_stage_number(self):
         """ステージ番号を右上に描画"""
         if self._cached_stage_num_text is None:
-            stage_num = self.current_stage_id.split('_')[1] if self.current_stage_id else "1"
-            self._cached_stage_num_text = self.font_large.render(text_manager.get("ui.stage_label", int(stage_num)), True, (180, 180, 180))
+            stage_num = self._current_stage_num() or 1
+            self._cached_stage_num_text = self.font_large.render(text_manager.get("ui.stage_label", stage_num), True, (180, 180, 180))
             
         text = self._cached_stage_num_text
         text_rect = text.get_rect(topright=(self.screen_width - 15, 10))
@@ -1690,14 +1718,15 @@ class Game:
             instructions = []
             if self.editor_mode:
                 stage_info = self.current_stage_id if self.current_stage_id else "(New)"
+                # (text, color, action) の3要素で揃える（描画側が3要素で展開するため）
                 instructions = [
-                    (text_manager.get("instructions.editor.title", stage_info), (255, 200, 100)),
-                    (text_manager.get("instructions.editor.load"), (180, 180, 180)),
-                    (text_manager.get("instructions.editor.new"), (180, 180, 180)),
-                    (text_manager.get("instructions.editor.save"), (180, 180, 180)),
-                    (text_manager.get("instructions.editor.change_id"), (180, 180, 180)),
-                    (text_manager.get("instructions.editor.toggle_grid"), (180, 180, 180)),
-                    (text_manager.get("instructions.editor.exit"), (200, 200, 255)),
+                    (text_manager.get("instructions.editor.title", stage_info), (255, 200, 100), None),
+                    (text_manager.get("instructions.editor.load"), (180, 180, 180), None),
+                    (text_manager.get("instructions.editor.new"), (180, 180, 180), None),
+                    (text_manager.get("instructions.editor.save"), (180, 180, 180), None),
+                    (text_manager.get("instructions.editor.change_id"), (180, 180, 180), None),
+                    (text_manager.get("instructions.editor.toggle_grid"), (180, 180, 180), None),
+                    (text_manager.get("instructions.editor.exit"), (200, 200, 255), None),
                 ]
             else:
                 hint_status = "ON" if self.show_ghost else "OFF"
