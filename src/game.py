@@ -116,17 +116,15 @@ class Game:
         pygame.display.set_caption(text_manager.get("window_title"))
         self.clock = pygame.time.Clock()
         self.running = True
-        
-        
+
         # サウンド・テキスト初期化
         text_manager.init()
         sound_manager.init()
-        
+
         # フォント更新（言語に合わせて）
         self._update_fonts()
         self._refresh_text_surfaces()
 
-        
         # Stage 1を読み込み（ファイルから）
         stage_file = os.path.join(self.stages_dir, 'STAGE_001.stage')
         if os.path.exists(stage_file):
@@ -138,7 +136,7 @@ class Game:
                 self._load_stage1()  # フォールバック
         else:
             self._load_stage1()  # フォールバック
-        
+
         # タイマー計測開始
         self.start_time = pygame.time.get_ticks()
 
@@ -1423,12 +1421,12 @@ class Game:
     async def run(self):
         """メインループ"""
         self.init()
-        
+
         while self.running:
             self.handle_events()
             self.update()
             self.draw()
             # clock.tick(60) は削除: await asyncio.sleep(0) がVSyncと同期するため不要
             await asyncio.sleep(0)
-        
+
         pygame.quit()

@@ -2,82 +2,49 @@
 Analytics Module
 Handles sending events to Google Analytics 4 (GA4).
 Compatible with both Web (emscripten) and Desktop environments.
+
+NOTE: Web上でのイベント送信は無効。
+      JS側(gtag)の呼び出しがPygbagのゲームループをブロックしてフリーズするため
+      （ROADMAP フェーズ6-3 / 6-4 を参照）。
+      Web版のPV計測は index.html に注入したGA4タグが行うので、Python側は不要。
+
+Never raises: callers can invoke send_event() bare, without their own try/except.
 """
 
 import sys
 import json
 
+
 class AnalyticsManager:
     """Manages analytics event tracking."""
-    
+
     def __init__(self):
         self.is_web = sys.platform == 'emscripten'
-        self.gtag = None
-        self._gtag_initialized = False
-        
+
         if self.is_web:
-            # Web: Lazy initialization of gtag (will be initialized on first use)
-            print("[Analytics] Web mode detected - GA4 events will be enabled on first use")
+            # Web: フリーズ防止のため無効
+            print("[Analytics] Web mode detected - Analytics DISABLED to prevent freeze.")
         else:
-            # Desktop: Keep analytics logging
+            # Desktop: コンソールへのログのみ
             print("[Analytics] Desktop mode - logging to console.")
-    
-    def _ensure_gtag(self):
-        """Ensure gtag is initialized (lazy initialization)"""
-        if self._gtag_initialized:
-            return self.gtag is not None
-        
-        if not self.is_web:
-            return False
-        
-        try:
-            import platform
-            if hasattr(platform, 'window'):
-                window = platform.window
-                if hasattr(window, 'gtag') and callable(window.gtag):
-                    self.gtag = window.gtag
-                    self._gtag_initialized = True
-                    print("[Analytics] GA4 events enabled via platform.window.gtag")
-                    return True
-                else:
-                    # Try accessing via window object directly
-                    if hasattr(window, 'gtag'):
-                        self.gtag = window.gtag
-                        self._gtag_initialized = True
-                        print("[Analytics] GA4 events enabled (direct access)")
-                        return True
-        except Exception as e:
-            print(f"[Analytics] Failed to initialize gtag: {e}")
-        
-        self._gtag_initialized = True
-        return False
 
     def send_event(self, event_name, params=None):
         """
-        Send an event to GA4.
-        Web: Uses platform.window.gtag directly (non-blocking)
-        Desktop: Logs to console
+        Send an event to GA4 (Desktop only).
 
-        Never raises: callers can invoke this bare, without their own try/except.
+        Web: 何もしない（フリーズ防止のため無効）
+        Desktop: コンソールに出力
         """
-        if params is None:
-            params = {}
+        # Web: Do nothing (disabled)
+        if self.is_web:
+            return
 
         try:
-            if self.is_web:
-                # Web: Send event via gtag (non-blocking, lazy initialization)
-                # gtag not available -> skip silently to prevent freeze
-                if self._ensure_gtag() and self.gtag:
-                    # Call gtag('event', event_name, params)
-                    # This should be non-blocking as gtag uses dataLayer.push internally
-                    self.gtag('event', event_name, params)
-                    print(f"[Analytics] Event sent: {event_name}, Params: {json.dumps(params)}")
-            else:
-                # Desktop Mode: Log to console
-                print(f"[Analytics] Event: {event_name}, Params: {json.dumps(params)}")
+            print(f"[Analytics] Event: {event_name}, Params: {json.dumps(params or {})}")
         except Exception as e:
-            # Never let analytics break the game loop
-            print(f"[Analytics] Failed to send event (non-blocking): {e}")
+            # ログ出力ごときでゲームを止めない
+            print(f"[Analytics] Failed to log event (non-blocking): {e}")
+
 
 # Global instance
 analytics = AnalyticsManager()
