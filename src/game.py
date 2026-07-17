@@ -10,24 +10,12 @@ import json
 import datetime
 import asyncio
 from src.grid import Grid
-from src.piece import Piece
+from src.piece import Piece, PIECE_COLORS
+from src.editor import StageEditor
 from src.sound import sound_manager
 from src.text_manager import text_manager
 from src.stage_loader import StageLoader
 from src.analytics import analytics
-
-
-# ピースの色パレット
-PIECE_COLORS = [
-    (220, 80, 80),    # A: 赤
-    (80, 180, 80),    # B: 緑
-    (80, 120, 220),   # C: 青
-    (220, 180, 60),   # D: 黄
-    (180, 80, 180),   # E: 紫
-    (80, 200, 200),   # F: シアン
-    (240, 140, 80),   # G: オレンジ
-    (255, 120, 180),  # H: ピンク
-]
 
 
 class Game:
@@ -46,18 +34,12 @@ class Game:
         
         self.game_clear = False
         
-        # エディタモード
-        self.editor_mode = False
-        self.editor_cell_map = {}  # {(row, col): piece_id}
-        # A-Zまで用意しておく（自動生成ステージ対応）
-        self.piece_ids = [chr(i) for i in range(ord('A'), ord('Z')+1)]
-        self.editor_max_rows = 11  # 編集可能な最大行数
-        self.editor_max_cols = 11  # 編集可能な最大列数
-        
         # ステージ情報
         self.current_stage_id = ''
         self.stages_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'stages')
-        self.editor_page = 0  # ステージ選択ページ (0: 1-10, 1: 11-20...)
+
+        # ステージエディタ（デスクトップ版のみ）
+        self.editor = StageEditor(self)
         
         # 保存メッセージ表示
         self.save_message = ''
@@ -86,36 +68,47 @@ class Game:
         # Web版最適化用
         self.space_lock = False
         self.font_timer = None
-        self._timer_cache_text = None
-        self._timer_cache_key = None # (time_str, color)
-        self._ghost_cell_surface = None
-        self._ghost_cell_key = None # (color, cell_size)
-        
-        # その他キャッシュ
+
+        # 次ステージの有無（os.path.existsの結果。ステージ切替時のみ破棄）
         self._next_stage_exists_cache = None
-        self._cached_instructions = None
+
+        # 描画キャッシュの再生成判定に使う前回値
         self._last_ghost_state = False
         self._last_editor_mode = False
-        
+        self._last_stage_id_for_inst = None
+        self._last_privacy_lang = None
+        self._last_save_message = None
+        self._last_title_lang = None
+
+        # 描画キャッシュ本体
+        self._invalidate_render_cache()
+
         # Privacy Policy Mode
         self.privacy_mode = False
-        self._last_stage_id_for_inst = None
-        self._cached_privacy_surfaces = None
-        self._last_privacy_lang = None
-        
+
         # Touch controls for instructions (Web only)
         self.instruction_rects = []  # [(rect, action_key), ...]
-        
-        # Save message cache
-        self._cached_save_message_text = None
-        self._last_save_message = None
-        
-        # Title screen cache
-        self._cached_title_surfaces = None
-        self._last_title_lang = None
-        
 
-    
+    def _invalidate_render_cache(self):
+        """
+        描画キャッシュを一括破棄
+
+        フォント・言語・ステージが変わると描画済みSurfaceは全て古くなる。
+        個別にクリアしていると新しいキャッシュを足した時に消し忘れるため、
+        破棄は必ずこの1箇所にまとめる
+        """
+        self._cached_stage_num_text = None
+        self._cached_stage_label_text = None
+        self._cached_ranking_surfaces = None
+        self._cached_instructions = None
+        self._cached_privacy_surfaces = None
+        self._cached_title_surfaces = None
+        self._cached_save_message_text = None
+        self._timer_cache_text = None
+        self._timer_cache_key = None   # (time_str, color)
+        self._ghost_cell_surface = None
+        self._ghost_cell_key = None    # (color, cell_size)
+
     def init(self):
         """Pygame初期化"""
         pygame.init()
@@ -196,8 +189,9 @@ class Game:
         # Consolasがなければデフォルトフォント等が使われる
 
         self.font_timer = pygame.font.SysFont("consolas", 48)
-        self._timer_cache_text = None # フォント変更時にキャッシュクリア
-        self._timer_cache_key = None
+
+        # フォントが変わると描画済みSurfaceは全て古くなる
+        self._invalidate_render_cache()
 
     def _refresh_text_surfaces(self):
         """静的テキストを再レンダリング"""
@@ -205,12 +199,9 @@ class Game:
         self.text_clear = self.font_large.render(text_manager.get("ui.clear"), True, (255, 215, 0))
         self.text_all_clear = self.font_large.render(text_manager.get("ui.all_clear"), True, (255, 215, 0))
         self.text_press_space = self.font_small.render(text_manager.get("ui.press_space"), True, (200, 200, 200))
-        
-        # キャッシュ無効化（次回描画時に再生成）
-        self._cached_stage_num_text = None
-        self._cached_stage_label_text = None
-        self._cached_ranking_surfaces = None
-        self._cached_instructions = None
+
+        # 次回描画時に再生成させる
+        self._invalidate_render_cache()
     
     def _load_stage1(self):
         """Stage 1（赤十字型）を読み込み（.stageファイルが無い場合のフォールバック）"""
@@ -361,7 +352,7 @@ class Game:
                     if event.button == 1:
                         self.privacy_mode = False
                 # Instruction menu tap (Web only)
-                elif sys.platform == 'emscripten' and event.button == 1 and not self.editor_mode:
+                elif sys.platform == 'emscripten' and event.button == 1 and not self.editor.enabled:
                     tapped = False
                     for rect, action in self.instruction_rects:
                         if rect.collidepoint(event.pos):
@@ -374,8 +365,8 @@ class Game:
                             self._load_next_stage()
                         else:
                             self._on_mouse_down(event.pos)
-                elif self.editor_mode:
-                    self._editor_click(event.pos, event.button)
+                elif self.editor.enabled:
+                    self.editor.click(event.pos, event.button)
                 elif event.button == 1:
                     # Clear screen click
                     if self.game_clear and self._check_next_stage_exists():
@@ -384,7 +375,7 @@ class Game:
                         self._on_mouse_down(event.pos)
             
             elif event.type == pygame.MOUSEBUTTONUP:
-                if not self.editor_mode and event.button == 1:
+                if not self.editor.enabled and event.button == 1:
                     self._on_mouse_up(event.pos)
             
             elif event.type == pygame.MOUSEMOTION:
@@ -392,7 +383,7 @@ class Game:
             
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    if self.game_clear and not self.editor_mode and not self._check_next_stage_exists():
+                    if self.game_clear and not self.editor.enabled and not self._check_next_stage_exists():
                         # オールクリア時のESCはゲーム終了
                         self.running = False
                     elif not self.game_clear:
@@ -402,7 +393,7 @@ class Game:
                         self.space_lock = True
                         if self.privacy_mode:
                             self.privacy_mode = False
-                        elif self.game_clear and not self.editor_mode:
+                        elif self.game_clear and not self.editor.enabled:
                             if self._check_next_stage_exists():
                                 self._load_next_stage()
                 elif event.key == pygame.K_r:
@@ -410,7 +401,7 @@ class Game:
                     self._reset_game()
                 elif event.key == pygame.K_z:
                     # Undo
-                    if not self.editor_mode and not self.game_clear:
+                    if not self.editor.enabled and not self.game_clear:
                         self._undo_last_action()
                 elif event.key == pygame.K_t:
                     # タイマー表示切り替え
@@ -419,48 +410,45 @@ class Game:
                     # 正解表示
                     self._show_solution()
                     # 正解を見たらRTA無効
-                    if not self.editor_mode and not self.game_clear:
+                    if not self.editor.enabled and not self.game_clear:
                         self.rta_invalid = True
                 elif event.key == pygame.K_e:
                     # エディタモード切り替え
-                    self._toggle_editor_mode()
+                    self.editor.toggle()
                 elif event.key == pygame.K_p:
                     # 設計を.stageファイルに保存
-                    if self.editor_mode:
-                        self._print_design()
+                    if self.editor.enabled:
+                        self.editor.save_design()
                     # タイトル画面 または ゲーム中（非エディタ）でプライバシーポリシー表示
-                    elif not self.editor_mode:
+                    elif not self.editor.enabled:
                         self.privacy_mode = not self.privacy_mode
                 elif event.key == pygame.K_n:
                     # 新規ステージ（エディタモード時）
-                    if self.editor_mode:
-                        self._editor_new_stage()
+                    if self.editor.enabled:
+                        self.editor.new_stage()
                 # ページ切り替え（エディタモード）
-                elif event.key == pygame.K_LEFT and self.editor_mode:
-                    self.editor_page = max(0, self.editor_page - 1)
-                    print(f"Page: {self.editor_page + 1}")
-                elif event.key == pygame.K_RIGHT and self.editor_mode:
-                    self.editor_page += 1
-                    print(f"Page: {self.editor_page + 1}")
-                
+                elif event.key == pygame.K_LEFT and self.editor.enabled:
+                    self.editor.prev_page()
+                elif event.key == pygame.K_RIGHT and self.editor.enabled:
+                    self.editor.next_page()
+
                 elif event.key in [pygame.K_0, pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5,
                                    pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9]:
                     # 数字キー処理
-                    if self.editor_mode:
+                    if self.editor.enabled:
                         # ステージ切り替え（エディタモード時）
                         num = event.key - pygame.K_0
                         if num == 0: num = 10
-                        
-                        stage_num = (self.editor_page * 10) + num
-                        self._editor_load_stage(stage_num)
-                    
+
+                        self.editor.load_stage(self.editor.stage_num_for_key(num))
+
                     elif event.key == pygame.K_1:
                          # オールクリア時の1はステージ1からリスタート
-                         if self.game_clear and not self.editor_mode and not self._check_next_stage_exists():
+                         if self.game_clear and not self.editor.enabled and not self._check_next_stage_exists():
                             self._load_stage(1)
                 elif event.key == pygame.K_h:
                     # ゴースト表示切り替え
-                    if not self.editor_mode:
+                    if not self.editor.enabled:
                         self.show_ghost = not self.show_ghost
                         # ヒントを使ったらRTA無効
                         if self.show_ghost and not self.game_clear:
@@ -480,7 +468,7 @@ class Game:
     def _handle_instruction_tap(self, action):
         """操作説明のタップを処理（Web版のみ）"""
         if action == 'Z':
-            if not self.editor_mode and not self.game_clear:
+            if not self.editor.enabled and not self.game_clear:
                 self._undo_last_action()
         elif action == 'T':
             self.show_timer = not self.show_timer
@@ -657,166 +645,6 @@ class Game:
         if self.grid.is_complete():
             self.game_clear = True
     
-    def _toggle_editor_mode(self):
-        """エディタモード切り替え"""
-        # Web版ではエディタモード無効
-        if sys.platform == 'emscripten':
-            return
-        self.editor_mode = not self.editor_mode
-        if self.editor_mode:
-            # エディタモード開始時、グリッドを現在の正解で初期化
-            self.editor_cell_map = {}
-            for cell in self.grid.valid_cells:
-                self.editor_cell_map[cell] = 'A'  # 初期は全てA
-            
-            stages = StageLoader.list_stages(self.stages_dir)
-            print(text_manager.get("logs.editor_mode_on"))
-            print(text_manager.get("logs.available_stages", len(stages)))
-            print(text_manager.get("logs.editor_console_guide"))
-        else:
-            print(text_manager.get("logs.editor_mode_off"))
-            # エディタ終了時に現在のステージを再ロードして変更を反映
-            stage_num = self._current_stage_num()
-            if stage_num is not None:
-                self._load_stage(stage_num)
-            else:
-                self._load_stage1()
-    
-    def _editor_new_stage(self):
-        """新規ステージを作成"""
-        # 全セルをAで初期化
-        self.editor_cell_map = {}
-        for cell in self.grid.valid_cells:
-            self.editor_cell_map[cell] = 'A'
-        self.current_stage_id = ''
-        print(text_manager.get("logs.new_stage_created"))
-    
-    def _editor_load_stage(self, stage_num):
-        """指定番号のステージを読み込み"""
-        stage_file = os.path.join(self.stages_dir, f"STAGE_{stage_num:03d}.stage")
-        
-        if not os.path.exists(stage_file):
-            print(text_manager.get("logs.stage_not_found", stage_num, stage_file))
-            return
-        
-        # ステージを読み込み
-        stage_data = StageLoader.load_stage(stage_file)
-        self.current_stage_id = stage_data['stage_id']
-        
-        # グリッド形状を更新
-        shape = stage_data['grid_shape']
-        cell_size = self.grid.cell_size
-        grid_width = len(shape[0]) * cell_size
-        grid_height = len(shape) * cell_size
-        offset_x = (self.screen_width - grid_width) // 2
-        offset_y = (self.screen_height - grid_height) // 2
-        
-        self.grid = Grid(shape, cell_size, offset_x, offset_y)
-        
-        # エディタセルマップを初期化
-        self.editor_cell_map = {}
-        for cell in self.grid.valid_cells:
-            self.editor_cell_map[cell] = 'A'
-        
-        # ピース情報からセルマップを設定
-        for piece_data in stage_data['pieces']:
-            base_row = piece_data['position'][0]
-            base_col = piece_data['position'][1]
-            for r, c in piece_data['cells']:
-                cell = (base_row + r, base_col + c)
-                if cell in self.editor_cell_map:
-                    self.editor_cell_map[cell] = piece_data['id']
-        
-        print(text_manager.get("logs.loaded_stage", self.current_stage_id, stage_data['name']))
-    
-    def _editor_click(self, pos, button):
-        """エディタモードでのクリック処理"""
-        mx, my = pos
-        row, col = self.grid.pixel_to_cell(mx, my)
-        
-        # 中クリック: グリッドの有効/無効を切り替え
-        if button == 2:
-            # 最大サイズ内かチェック
-            if 0 <= row < self.editor_max_rows and 0 <= col < self.editor_max_cols:
-                if (row, col) in self.editor_cell_map:
-                    # 有効→無効
-                    del self.editor_cell_map[(row, col)]
-                    self.grid.set_cell(row, col, False)
-                else:
-                    # 無効→有効
-                    self.editor_cell_map[(row, col)] = 'A'
-                    self.grid.set_cell(row, col, True)
-            return
-        
-        if (row, col) in self.editor_cell_map:
-            current_id = self.editor_cell_map[(row, col)]
-            idx = self.piece_ids.index(current_id)
-            
-            if button == 1:  # 左クリック: 次のID
-                idx = (idx + 1) % len(self.piece_ids)
-            elif button == 3:  # 右クリック: 前のID
-                idx = (idx - 1) % len(self.piece_ids)
-            
-            self.editor_cell_map[(row, col)] = self.piece_ids[idx]
-    
-    def _print_design(self):
-        """設計結果を.stageファイルに保存"""
-        # ピースIDごとにセルをグループ化
-        pieces = {}
-        for (row, col), pid in self.editor_cell_map.items():
-            if pid not in pieces:
-                pieces[pid] = []
-            pieces[pid].append((row, col))
-        
-        # ピースデータを作成
-        pieces_list = []
-        for pid in sorted(pieces.keys()):
-            cells = pieces[pid]
-            if cells:
-                min_row = min(c[0] for c in cells)
-                min_col = min(c[1] for c in cells)
-                local_cells = [(r - min_row, c - min_col) for r, c in cells]
-                pieces_list.append({
-                    'id': pid,
-                    'position': (min_row, min_col),
-                    'cells': sorted(local_cells)
-                })
-        
-        # ステージIDを決定（既存の場合は上書き、新規の場合は新しい番号）
-        stage_num = self._current_stage_num()
-        if stage_num is not None:
-            # 既存ステージを上書き
-            stage_id = self.current_stage_id
-        else:
-            # 新規ステージ: 既存の最大番号+1
-            # （ファイル数+1だと欠番がある時に既存ステージを上書きしてしまう）
-            max_num = 0
-            for path in StageLoader.list_stages(self.stages_dir):
-                existing_id = os.path.splitext(os.path.basename(path))[0]
-                existing_num = self._stage_id_to_num(existing_id)
-                if existing_num is not None and existing_num > max_num:
-                    max_num = existing_num
-            stage_num = max_num + 1
-            stage_id = f"STAGE_{stage_num:03d}"
-        
-        # ファイルパス
-        output_path = os.path.join(self.stages_dir, f"{stage_id}.stage")
-        
-        # 保存
-        StageLoader.save_stage(
-            filepath=output_path,
-            stage_id=stage_id,
-            name=f"Stage {stage_num}",
-            difficulty=1,
-            grid_shape=self.grid.shape,
-            pieces=pieces_list
-        )
-        
-        self.current_stage_id = stage_id
-        self.save_message = text_manager.get("ui.save_message", stage_num)
-        self.save_message_timer = 120  # 2秒表示
-        print(text_manager.get("logs.saved_file", output_path))
-
     def _load_ranking(self):
         """ランキングを読み込み"""
         # Web版はlocalStorageを使用
@@ -918,7 +746,7 @@ class Game:
         
         if os.path.exists(filepath):
             self.current_stage_id = stage_id
-            self.editor_mode = False
+            self.editor.enabled = False
             self.show_ghost = False
             self.dragging_piece = None
             self.action_history = []  # 履歴クリア
@@ -939,18 +767,11 @@ class Game:
                 stage_data = StageLoader.load_stage(filepath)
                 self._setup_stage(stage_data)
                 print(text_manager.get("logs.loaded_stage", filename, ""))
-                
+
                 # キャッシュクリア（メモリリーク防止）
-                self._cached_stage_num_text = None
-                self._cached_stage_label_text = None
-                self._cached_ranking_surfaces = None
-                self._cached_instructions = None
-                self._cached_privacy_surfaces = None
-                self._cached_title_surfaces = None
-                self._cached_save_message_text = None
-                self._timer_cache_text = None
-                self._timer_cache_key = None
-                
+                self._invalidate_render_cache()
+
+
                 analytics.send_event("level_start", {
                     "stage_id": self.current_stage_id,
                     "difficulty": stage_data.get('difficulty', 1)
@@ -1003,7 +824,7 @@ class Game:
                 self.save_message = ''
         
         # タイマー計測
-        if not self.game_clear and not self.editor_mode:
+        if not self.game_clear and not self.editor.enabled:
             current = pygame.time.get_ticks()
             self.elapsed_time = current - self.start_time
     
@@ -1019,9 +840,9 @@ class Game:
         # グリッド
         self.grid.draw(self.screen)
         
-        if self.editor_mode:
+        if self.editor.enabled:
             # エディタモード: セルマップを描画
-            self._draw_editor()
+            self.editor.draw(self.screen)
         else:
             # 通常モード
             # ゴースト表示（正解位置を半透明で表示）
@@ -1037,14 +858,14 @@ class Game:
                 piece.draw(self.screen)
         
         # Clear display
-        if self.game_clear and not self.editor_mode:
+        if self.game_clear and not self.editor.enabled:
             self._draw_clear_message()
         
         # 操作説明
         self._draw_instructions()
         
         # ステージ番号（右上）
-        if not self.editor_mode:
+        if not self.editor.enabled:
             self._draw_stage_number()
         
         # 保存メッセージ
@@ -1052,7 +873,7 @@ class Game:
             self._draw_save_message()
             
         # タイマー描画
-        if self.show_timer and not self.editor_mode:
+        if self.show_timer and not self.editor.enabled:
             self._draw_timer()
             
         # プライバシーポリシー（最前面にオーバーレイ）
@@ -1060,48 +881,6 @@ class Game:
             self._draw_privacy_policy()
         
         pygame.display.flip()
-    
-    def _draw_editor(self):
-        """エディタモードの描画"""
-        cell_size = self.grid.cell_size
-        
-        # 最大サイズのグリッド線をうっすら描画
-        for row in range(self.editor_max_rows):
-            for col in range(self.editor_max_cols):
-                if (row, col) not in self.editor_cell_map:
-                    # 無効セル: うっすらとした線で表示
-                    x, y = self.grid.cell_to_pixel(row, col)
-                    # pygame.Rect の生成を削減
-                    pygame.draw.rect(self.screen, (60, 60, 70), (x, y, cell_size, cell_size), 1)
-        
-        # 有効セルを描画（ピースID付き）
-        for (row, col), pid in self.editor_cell_map.items():
-            x, y = self.grid.cell_to_pixel(row, col)
-            
-            # ピースIDに応じた色
-            if pid not in self.piece_ids:
-                self.piece_ids.append(pid)
-            
-            idx = self.piece_ids.index(pid)
-            color = PIECE_COLORS[idx % len(PIECE_COLORS)]
-            
-            # pygame.Rect の生成を削減
-            pygame.draw.rect(self.screen, color, (x, y, cell_size, cell_size))
-            pygame.draw.rect(self.screen, (0, 0, 0), (x, y, cell_size, cell_size), 2)
-            
-            # ピースID文字
-            font = self.font_ui
-            text = font.render(pid, True, (255, 255, 255))
-            text_rect = text.get_rect(center=(x + cell_size // 2, y + cell_size // 2))
-            self.screen.blit(text, text_rect)
-
-        # ページ・操作ガイド表示
-        start_stage = (self.editor_page * 10) + 1
-        end_stage = (self.editor_page + 1) * 10
-        page_info = text_manager.get("ui.editor_info", self.editor_page + 1, start_stage, end_stage)
-        
-        info_text = self.font_ui.render(page_info, True, (200, 200, 200))
-        self.screen.blit(info_text, (20, self.screen_height - 40))
     
     def _draw_clear_message(self):
         """クリアメッセージを描画"""
@@ -1545,7 +1324,7 @@ class Game:
         """操作説明を描画（キャッシュ最適化版）"""
         # 状態変化のチェック
         current_ghost = self.show_ghost
-        current_editor = self.editor_mode
+        current_editor = self.editor.enabled
         current_stage = self.current_stage_id
         
         if (self._cached_instructions is None or 
@@ -1563,19 +1342,9 @@ class Game:
             # instructionは font_ui(28/25px) を使用する
             font = self.font_ui
             
-            instructions = []
-            if self.editor_mode:
-                stage_info = self.current_stage_id if self.current_stage_id else "(New)"
-                # (text, color, action) の3要素で揃える（描画側が3要素で展開するため）
-                instructions = [
-                    (text_manager.get("instructions.editor.title", stage_info), (255, 200, 100), None),
-                    (text_manager.get("instructions.editor.load"), (180, 180, 180), None),
-                    (text_manager.get("instructions.editor.new"), (180, 180, 180), None),
-                    (text_manager.get("instructions.editor.save"), (180, 180, 180), None),
-                    (text_manager.get("instructions.editor.change_id"), (180, 180, 180), None),
-                    (text_manager.get("instructions.editor.toggle_grid"), (180, 180, 180), None),
-                    (text_manager.get("instructions.editor.exit"), (200, 200, 255), None),
-                ]
+            # 各行は (text, color, action) の3要素
+            if self.editor.enabled:
+                instructions = self.editor.instructions()
             else:
                 hint_status = "ON" if self.show_ghost else "OFF"
                 hint_color = (100, 255, 150) if self.show_ghost else (180, 180, 180)
