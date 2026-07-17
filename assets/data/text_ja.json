@@ -1,0 +1,58 @@
+{
+    "window_title": "ウッドパズル",
+    "ui": {
+        "clear": "クリア！",
+        "all_clear": "全ステージクリア！",
+        "press_space": "スペースキーで次へ",
+        "stage_label": "ステージ {}",
+        "ranking_title": "--- RTA ランキング ---",
+        "ranking_new": " < 更新!",
+        "save_message": "ステージ {} を保存しました！",
+        "editor_info": "ページ {} (ステージ {}-{})  [<-] 前へ  [->] 次へ  [0-9] 読込"
+    },
+    "ranking": {
+        "1st": "1位  {}",
+        "2nd": "2位  {}",
+        "3rd": "3位  {}",
+        "nth": "{}位  {}"
+    },
+    "instructions": {
+        "editor": {
+            "title": "エディタモード - {}",
+            "load": "1-9: 読込",
+            "new": "N: 新規",
+            "save": "P: 保存",
+            "change_id": "左クリック: ID変更",
+            "toggle_grid": "中クリック: グリッド切替",
+            "exit": "E: 終了"
+        },
+        "game": {
+            "drag": "ピースを枠内へドラッグ",
+            "undo": "Z: 戻す",
+            "timer": "T: タイマー",
+            "reset": "R: リセット",
+            "solution": "S: 正解表示",
+            "hint": "H: ヒント ({})",
+            "editor": "E: エディタ",
+            "language": "L: ENGLISH"
+        },
+        "game_over": {
+            "esc": "ESC: ゲーム終了",
+            "restart": "1: 最初からリスタート",
+            "retry": "R: ステージリトライ"
+        }
+    },
+    "logs": {
+        "editor_mode_on": "=== エディタモード 開始 ===",
+        "available_stages": "利用可能ステージ数: {}",
+        "editor_console_guide": "1-9: 読込 | N: 新規 | P: 保存 | E: 終了",
+        "editor_mode_off": "=== エディタモード 終了 ===",
+        "new_stage_created": "新規ステージを作成しました（全セルA）",
+        "stage_not_found": "ステージ {} が見つかりません: {}",
+        "loaded_stage": "読込完了: {} ({})",
+        "saved_file": "ステージを保存しました: {}",
+        "load_fail": "再読込失敗: {}",
+        "ranking_load_fail": "ランキング読込失敗: {}",
+        "ranking_save_fail": "ランキング保存失敗: {}"
+    }
+}

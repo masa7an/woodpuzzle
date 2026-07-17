@@ -1,0 +1,51 @@
+stage_id: STAGE_019
+name: Robot
+difficulty: 5
+grid:
+0 0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0 0
+0 0 0 0 1 1 1 0 0 0 0
+0 0 0 0 1 1 1 0 0 0 0
+0 1 1 1 1 1 1 1 1 1 0
+0 1 1 1 1 1 1 1 1 1 0
+0 1 1 1 1 1 1 1 1 1 0
+0 0 0 1 1 1 1 1 0 0 0
+0 0 0 1 1 0 1 1 0 0 0
+0 0 0 1 1 0 1 1 0 0 0
+0 0 0 0 0 0 0 0 0 0 0
+piece A:
+  position: 2,4
+  cells: (0,0) (1,0) (1,1) (0,1)
+piece B:
+  position: 2,6
+  cells: (0,0) (1,0) (2,0)
+piece C:
+  position: 4,1
+  cells: (0,0) (0,1) (1,0)
+piece D:
+  position: 4,3
+  cells: (0,0) (0,1) (1,0) (0,2)
+piece E:
+  position: 4,7
+  cells: (0,0) (0,1) (1,0)
+piece F:
+  position: 4,8
+  cells: (0,1) (1,1) (2,1) (1,0)
+piece G:
+  position: 5,1
+  cells: (0,1) (1,1) (1,0) (1,2) (1,3)
+piece H:
+  position: 5,4
+  cells: (0,0) (0,1) (0,2) (1,2) (2,2)
+piece I:
+  position: 6,3
+  cells: (0,2) (1,2) (1,1) (2,1) (1,0)
+piece J:
+  position: 6,7
+  cells: (0,0) (0,1) (1,0)
+piece K:
+  position: 8,3
+  cells: (0,0) (1,0) (1,1)
+piece L:
+  position: 8,6
+  cells: (0,0) (1,0) (1,1) (0,1)

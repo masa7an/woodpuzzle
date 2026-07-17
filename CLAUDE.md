@@ -38,9 +38,29 @@ python -m pygbag .          # → http://localhost:8000/
 - 公開用の成果物を作る時だけ、ビルドと注入を順に実行する:
 
 ```bash
-python -m pygbag --build .              # → build/web/
-python assets/scripts/inject_ga4.py     # GA4タグ・タイトル・ローディング文言を注入
+build_web.bat        # ビルド + GA4注入をまとめて実行（下記の罠も処理する）
 ```
+
+### ⚠️ 罠: 直下の `woodpazzule.apk` を退避せずにビルドすると、apkが自分自身を同梱する
+
+pygbagは**プロジェクト直下を丸ごとパックし、`.apk` を除外しない**
+（`pygbag/filtering.py` の `SKIP_EXT` は `lnk, pyc, pyx, pyd, pyi, exe, bak, log, blend` のみ。
+除外フォルダは `/build`, `/dist`, `/.git`, `/venv`, `/ignore`, `/static`, `/ATTIC` 等）。
+
+直下の `woodpazzule.apk` は GitHub Pages が配信している**公開中の成果物**なので、
+置いたままビルドすると新しいapkの中に古いapkが丸ごと入り、**サイズが約2倍**になる（3.6MB → 7.1MB）。
+
+`build_web.bat` は一時的に `woodpazzule.apk.bak` へリネームして回避している
+（`.bak` は `SKIP_EXT` に含まれるためパックされない）。手動でビルドする場合も同じ退避が必要:
+
+```bash
+mv woodpazzule.apk woodpazzule.apk.bak
+python -m pygbag --build .
+mv woodpazzule.apk.bak woodpazzule.apk
+python assets/scripts/inject_ga4.py
+```
+
+**ビルド後は必ずapkのサイズと中身を確認すること**（公開中の3.5MBから大きく増えていたら疑う）。
 
 - デプロイは `build/web/*`（`index.html`, `woodpazzule.apk`, `favicon.png`, `privacy.html`）を
   **リポジトリ直下へコピー**して push する。GitHub Pages が配信しているのは直下のファイル。
@@ -75,25 +95,25 @@ python assets/scripts/inject_ga4.py     # GA4タグ・タイトル・ローデ�
 
 ---
 
-## ⚠️ 作業ディレクトリから失われているファイル
+## 失われていたファイルについて（2026-07-17 復元済み）
 
-以下は**公開中のゲームには含まれるが、作業ディレクトリに存在しない**（2026-07-17時点、未解決）:
+`stages/`（20ステージ）、`assets/data/`（UIテキスト）、`assets/fonts/`（日本語フォント）、
+`assets/SE/`（効果音）は作業ディレクトリから消えていたが、公開中の `woodpazzule.apk` から復元しGit管理下に入れた。
 
-- `stages/STAGE_001.stage` 〜 `STAGE_020.stage`（**20ステージ全部**）
-- `assets/data/text_en.json`, `text_ja.json`（UIテキスト）
-- `assets/fonts/NotoSansJP-Regular.ttf`（日本語フォント）
-- `assets/SE/snap.wav`, `clear.wav`（効果音）
-- `assets/privacy.html`、`build_web.bat`、`local_test_run.bat`、`run_with_pygbag.bat`、`requirements.txt` ほか
+**まだ復元していないもの**（必要になったら同じくapkから取り出せる）:
+`assets/privacy.html`（直下の `privacy.html` は存在する）、`local_test_run.bat`、
+`run_with_pygbag.bat`、`requirements.txt`、`stages.md`、`pygbag_web移植ガイド.md`
 
-**結果として、現状ビルドすると「内蔵Stage 1のみ・UIテキストは `ui.clear` 等のキー文字列・音なし」になる。**
-この状態を**絶対にデプロイしないこと**（20ステージのゲームが1ステージに置き換わる）。
-
-これらは**リポジトリ直下の `woodpazzule.apk`（公開中の版）の中に全て残っている**ので復元可能:
+公開中のapkは事実上のバックアップとして機能する:
 
 ```python
 import zipfile
-zipfile.ZipFile('woodpazzule.apk').extractall('復元先')   # assets/ 以下に入っている
+zipfile.ZipFile('woodpazzule.apk').extractall('復元先')   # assets/<元の直下> という構造
 ```
+
+**教訓**: `src/*.py` を直しただけで「検証OK」としないこと。ビルド成果物（apk）の中身を
+公開中の版と必ず比較する。アセットが欠けたままデプロイすると、20ステージのゲームが
+1ステージ・テキスト無しに置き換わる。
 
 ---
 

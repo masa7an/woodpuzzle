@@ -1,0 +1,58 @@
+{
+    "window_title": "Wood Puzzle",
+    "ui": {
+        "clear": "CLEAR!",
+        "all_clear": "ALL CLEAR!",
+        "press_space": "Press SPACE to Next Stage",
+        "stage_label": "STAGE {}",
+        "ranking_title": "--- RTA RANKING ---",
+        "ranking_new": " < NEW!",
+        "save_message": "ステージ {} をSAVEしました！",
+        "editor_info": "Page {} (Stage {}-{})  [<-] Prev  [->] Next  [0-9] Load"
+    },
+    "ranking": {
+        "1st": "1st  {}",
+        "2nd": "2nd  {}",
+        "3rd": "3rd  {}",
+        "nth": "{}th  {}"
+    },
+    "instructions": {
+        "editor": {
+            "title": "EDITOR MODE - {}",
+            "load": "1-9: Load Stage",
+            "new": "N: New Stage",
+            "save": "P: Save Stage",
+            "change_id": "LClick: Change ID",
+            "toggle_grid": "MClick: Toggle Grid",
+            "exit": "E: Exit Editor"
+        },
+        "game": {
+            "drag": "Drag pieces to the frame",
+            "undo": "Z: Undo",
+            "timer": "T: Timer",
+            "reset": "R: Reset",
+            "solution": "S: Solution",
+            "hint": "H: Hint ({})",
+            "editor": "E: Editor",
+            "language": "L: JAPANESE"
+        },
+        "game_over": {
+            "esc": "ESC: Exit Game",
+            "restart": "1: Restart from Stage 1",
+            "retry": "R: Retry Stage"
+        }
+    },
+    "logs": {
+        "editor_mode_on": "=== EDITOR MODE ON ===",
+        "available_stages": "Available stages: {}",
+        "editor_console_guide": "1-9: Load stage | N: New stage | P: Save | E: Exit",
+        "editor_mode_off": "=== EDITOR MODE OFF ===",
+        "new_stage_created": "New stage created (all cells set to A)",
+        "stage_not_found": "Stage {} not found: {}",
+        "loaded_stage": "Loaded: {} ({})",
+        "saved_file": "Stage saved to: {}",
+        "load_fail": "Reload failed: {}",
+        "ranking_load_fail": "Failed to load ranking: {}",
+        "ranking_save_fail": "Failed to save ranking: {}"
+    }
+}

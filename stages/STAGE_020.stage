@@ -1,0 +1,39 @@
+stage_id: STAGE_020
+name: Crown
+difficulty: 5
+grid:
+0 0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0 0
+0 0 1 0 0 1 0 0 1 0 0
+0 0 1 0 0 1 0 0 1 0 0
+0 0 1 1 1 1 1 1 1 0 0
+0 0 1 1 1 1 1 1 1 0 0
+0 0 1 1 1 1 1 1 1 0 0
+0 0 1 1 1 1 1 1 1 0 0
+0 0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0 0
+piece A:
+  position: 3,2
+  cells: (0,0) (1,0) (2,0) (2,1)
+piece B:
+  position: 3,5
+  cells: (0,0) (1,0) (2,0) (2,1) (2,2)
+piece C:
+  position: 3,8
+  cells: (0,0) (1,0) (2,0) (3,0) (4,0)
+piece D:
+  position: 5,3
+  cells: (0,1) (1,1) (1,0) (1,2)
+piece E:
+  position: 6,2
+  cells: (0,0) (1,0) (2,0) (2,1) (2,2)
+piece F:
+  position: 6,6
+  cells: (0,0) (1,0) (0,1)
+piece G:
+  position: 7,3
+  cells: (0,0) (0,1) (0,2) (1,2) (1,3)
+piece H:
+  position: 7,7
+  cells: (0,0) (1,0) (1,1)

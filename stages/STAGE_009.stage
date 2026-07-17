@@ -1,0 +1,47 @@
+# STAGE DEFINITION
+stage_id: STAGE_009
+name: Key
+difficulty: 3
+
+# GRID SHAPE (1=valid, 0=invalid)
+grid:
+0 0 0 0 0 0 0 0 0 0 0
+0 0 1 1 1 0 0 0 0 0 0
+0 1 1 1 1 1 0 0 0 0 0
+0 1 1 0 1 1 0 0 0 0 0
+0 1 1 1 1 1 1 1 1 1 0
+0 0 1 1 1 0 0 0 0 1 0
+0 0 0 0 0 0 0 0 0 1 0
+0 0 0 0 0 0 0 1 1 1 0
+0 0 0 0 0 0 0 0 0 1 0
+0 0 0 0 0 0 0 1 1 1 0
+0 0 0 0 0 0 0 0 0 0 0
+
+# PIECES
+piece A:
+  position: 1,1
+  cells: (0,1) (0,2) (0,3) (1,0) (1,1) (1,2)
+
+piece B:
+  position: 2,4
+  cells: (0,0) (0,1) (1,0) (1,1)
+
+piece C:
+  position: 3,1
+  cells: (0,0) (0,1) (1,0) (1,1) (1,2) (2,1)
+
+piece D:
+  position: 4,3
+  cells: (0,1) (0,2) (0,3) (1,0) (1,1)
+
+piece E:
+  position: 4,7
+  cells: (0,0) (0,1) (0,2) (1,2)
+
+piece F:
+  position: 6,7
+  cells: (0,2) (1,0) (1,1) (1,2) (2,2) (3,2)
+
+piece G:
+  position: 9,7
+  cells: (0,0) (0,1)
