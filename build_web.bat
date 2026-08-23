@@ -1,5 +1,16 @@
 @echo off
 cd /d "%~dp0"
+
+rem Use the venv python directly. Do not use activate.bat: it only checks
+rem that the folder exists, so it reports success even when the base
+rem interpreter is gone.
+if not exist "venv\Scripts\python.exe" (
+    echo [ERROR] venv not found. Create it first:
+    echo     py -3.12 -m venv venv
+    echo     venv\Scripts\python.exe -m pip install -r requirements.txt
+    pause
+    exit /b 1
+)
 echo ========================================
 echo  Building Web Version with Pygbag
 echo ========================================
@@ -28,7 +39,7 @@ if exist "woodpazzule.apk" (
     move /y "woodpazzule.apk" "woodpazzule.apk.bak" >nul
 )
 
-python -m pygbag --build .
+"venv\Scripts\python.exe" -m pygbag --build .
 set BUILD_RC=%ERRORLEVEL%
 
 rem Always restore the stashed apk, even if the build failed
@@ -45,7 +56,7 @@ if not "%BUILD_RC%"=="0" (
 
 echo.
 echo Injecting GA4 tag...
-python assets\scripts\inject_ga4.py
+"venv\Scripts\python.exe" assets\scripts\inject_ga4.py
 
 echo.
 echo ========================================

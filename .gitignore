@@ -3,3 +3,7 @@ __pycache__/
 debug.log
 build/
 ranking.json
+
+# venv
+venv/
+.venv/
